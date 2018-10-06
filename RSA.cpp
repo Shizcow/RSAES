@@ -5,6 +5,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <cassert>
 
 using namespace std;
 
@@ -19,7 +20,7 @@ namespace RSA{
     return (isalnum(c) || (c == '+') || (c == '/'));
   }
 
-  std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
+  std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) { // Credit to René Nyffenegger
     std::string ret;
     int i = 0, j=0;
     unsigned char char_array_3[3], char_array_4[4];
@@ -55,7 +56,7 @@ namespace RSA{
     return ret;
   }
 
-  std::string base64_decode(std::string const& encoded_string) {
+  std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger
     std::string ret;
     int in_len = encoded_string.size(), i = 0, j = 0, in_ = 0;
     unsigned char char_array_4[4], char_array_3[3];
@@ -92,12 +93,12 @@ namespace RSA{
     
     std::pair<mpz_class,mpz_class> public_key;
     
-    std::string unpack(std::string msg){
-      return fromInt(decrypt(unzip(msg)));
+    std::string decrypt(std::string msg){
+      return fromInt(decode(unzip(msg)));
     }
 
     RSA(unsigned int bits) : rr(gmp_randinit_default){
-      rr.seed(time(NULL));
+      rr.seed(rand());
       mpz_class p = randPrime(bits);
       mpz_class q = randPrime(bits);
       mpz_class n = p*q;
@@ -107,8 +108,8 @@ namespace RSA{
       mpz_class gcd;
       mpz_class e;
       do{
-	e = rr.get_z_range(USHRT_MAX)+USHRT_MAX;
-	mpz_gcd(gcd.get_mpz_t(), T.get_mpz_t(), e.get_mpz_t());
+	e = rr.get_z_range(USHRT_MAX)+USHRT_MAX; // Slightly more secure but terrible performance. Doesn't really matter though
+	mpz_gcd(gcd.get_mpz_t(), T.get_mpz_t(), e.get_mpz_t()); // check if coprime
       } while(gcd!=1);
 
       mpz_class d = modInv(e, T);
@@ -169,12 +170,42 @@ namespace RSA{
       return ret;
     }
 
-    mpz_class decrypt(mpz_class c){
+    mpz_class decode(mpz_class c){
       mpz_class m;
       mpz_powm(m.get_mpz_t(), c.get_mpz_t(), private_key.get_mpz_t(), public_key.first.get_mpz_t());
       return m;
     }
-  };  
+  };
+
+  std::string packKey(std::pair<mpz_class,mpz_class> key){
+    size_t padding = mpz_sizeinbase(key.first.get_mpz_t(), 2); // bits
+    padding = padding/8+(padding%8>0?1:0);
+    unsigned char *str = (unsigned char*)malloc(padding);
+    mpz_export(str, nullptr, 1, 1, 1, 0, key.first.get_mpz_t());
+    std::string first = base64_encode(str, padding);
+    
+    padding = mpz_sizeinbase(key.second.get_mpz_t(), 2); // bits
+    padding = padding/8+(padding%8>0?1:0);
+    str = (unsigned char*)malloc(padding);
+    mpz_export(str, nullptr, 1, 1, 1, 0, key.second.get_mpz_t());
+    std::string second = base64_encode(str, padding);
+    
+    return first+'_'+second;
+  };
+
+  std::pair<mpz_class,mpz_class> unpackKey(std::string key){
+    std::string first = key.substr(0, key.find('_'));
+    key.erase(0, first.length()+1);
+    first = base64_decode(first);
+    std::string second = base64_decode(key);
+    
+    mpz_class _first;
+    mpz_import(_first.get_mpz_t(), first.length(), 1, 1, 1, 0, first.c_str());
+    mpz_class _second;
+    mpz_import(_second.get_mpz_t(), second.length(), 1, 1, 1, 0, second.c_str());
+    
+    return std::pair<mpz_class,mpz_class>(_first,_second);
+  }
   
   std::string encrypt(std::string input, std::pair<mpz_class,mpz_class> key){
     size_t padding = mpz_sizeinbase(key.first.get_mpz_t(), 2)/8-1; // pad message
@@ -183,7 +214,7 @@ namespace RSA{
       throw std::invalid_argument("message too large!");
     std::string rands;
     gmp_randclass rr(gmp_randinit_default);
-    rr.seed(time(NULL));
+    rr.seed(rand());
     for(int i=0; i<padding-input.length()-1; ++i){
       mpz_class ret = rr.get_z_bits(sizeof(char)*8)+1;
       rands+=(char)ret.get_ui(); // yes, I'm aware this is lazy
@@ -202,15 +233,22 @@ namespace RSA{
 }
 
 int main(){
-  RSA::RSA obj(1000);
-  auto public_key = obj.public_key;
 
+  srand(time(NULL));
   
-  string msg = "BEPIS";
-  string send = RSA::encrypt(msg, public_key);
+  while(true){
+    RSA::RSA obj(4098);
+  
+    std::string packed_key = RSA::packKey(obj.public_key);
+  
+    auto unpacked_key = RSA::unpackKey(packed_key);
 
-  cout << send << endl;
-  cout << obj.unpack(send) << endl;
+    cout << packed_key << endl << endl;
   
+    string send = "Here we go, test time to see if this works. TOURTURE TIME!";
+
+    string recv = obj.decrypt(RSA::encrypt(send, unpacked_key));
+    assert(send==recv);
+  }
   return 0;
 }
