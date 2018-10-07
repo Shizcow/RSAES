@@ -15,7 +15,6 @@ namespace RSA{
     "abcdefghijklmnopqrstuvwxyz"
     "0123456789+/";
 
-
   static inline bool is_base64(unsigned char c) {
     return (isalnum(c) || (c == '+') || (c == '/'));
   }
@@ -89,94 +88,6 @@ namespace RSA{
     return ret;
   }
 
-  struct RSA{
-    
-    std::pair<mpz_class,mpz_class> public_key;
-    
-    std::string decrypt(std::string msg){
-      return fromInt(decode(unzip(msg)));
-    }
-
-    RSA(unsigned int bits) : rr(gmp_randinit_default){
-      rr.seed(rand());
-      mpz_class p = randPrime(bits);
-      mpz_class q = randPrime(bits);
-      mpz_class n = p*q;
-      mpz_class T = (p-1)*(q-1);
-    
-      mpz_class ran;
-      mpz_class gcd;
-      mpz_class e;
-      do{
-	e = rr.get_z_range(USHRT_MAX)+USHRT_MAX; // Slightly more secure but terrible performance. Doesn't really matter though
-	mpz_gcd(gcd.get_mpz_t(), T.get_mpz_t(), e.get_mpz_t()); // check if coprime
-      } while(gcd!=1);
-
-      mpz_class d = modInv(e, T);
-
-      public_key.first = n;
-      public_key.second = e;
-      private_key = d;
-    }
-
-  private:
-    
-    mpz_class private_key;
-    gmp_randclass rr;
-  
-    mpz_class randPrime(unsigned int bits){
-      mpz_class ran;
-      bool found;
-    top:
-      found = true;
-      ran = rr.get_z_bits(bits);
-      if(!mpz_probab_prime_p(ran.get_mpz_t(), 100)) // muler-rabbin
-	goto top;
-    
-      return ran;
-    }
-    mpz_class modInv(mpz_class a, mpz_class m){
-      mpz_class m0 = m; 
-      mpz_class y = 0, x = 1; 
-
-      if (m == 1) 
-	return 0;
-    
-      mpz_class q, t;
-      while (a > 1){ 
-	q = a / m; 
-	t = m; 
-	m = a % m, a = t;
-	t = y; 
-	y = x - q * y; 
-	x = t; 
-      } 
-      if (x < 0) 
-	x += m0; 
-  
-      return x; 
-    }
-    std::string fromInt(mpz_class input){
-      char *str = (char*)malloc(mpz_sizeinbase(public_key.first.get_mpz_t(), 2));
-      mpz_export(str, nullptr, 1, 1, 1, 0, input.get_mpz_t());
-      return str;
-    }
-  
-    mpz_class unzip(std::string input){
-      size_t padding = mpz_sizeinbase(public_key.first.get_mpz_t(), 2);
-      std::string dec = base64_decode(input);
-      mpz_class ret;
-      mpz_import(ret.get_mpz_t(), dec.length(), 1, 1, 1, 0, dec.c_str());
-      return ret;
-    }
-
-    mpz_class decode(mpz_class c){
-      mpz_class m;
-      mpz_powm(m.get_mpz_t(), c.get_mpz_t(), private_key.get_mpz_t(), public_key.first.get_mpz_t());
-      return m;
-    }
-  };
-
   std::string packKey(std::pair<mpz_class,mpz_class> key){
     size_t padding = mpz_sizeinbase(key.first.get_mpz_t(), 2); // bits
     padding = padding/8+(padding%8>0?1:0);
@@ -217,7 +128,7 @@ namespace RSA{
     rr.seed(rand());
     for(int i=0; i<padding-input.length()-1; ++i){
       mpz_class ret = rr.get_z_bits(sizeof(char)*8)+1;
-      rands+=(char)ret.get_ui(); // yes, I'm aware this is lazy
+      rands+=(char)' ';//ret.get_ui(); // yes, I'm aware this is lazy
     }
 
     padding = mpz_sizeinbase(key.first.get_mpz_t(), 2)/8-1;
@@ -230,25 +141,152 @@ namespace RSA{
     mpz_export(str, nullptr, 1, 1, 1, 0, ret.get_mpz_t());
     return base64_encode(str, padding/8+(padding%8>0?1:0));
   }
+  
+  struct EncryptionManager{
+    gmp_randclass rr;
+    struct RSA{
+      gmp_randclass r; // maybe TODO: combine these two
+      std::pair<mpz_class,mpz_class> public_key;
+    
+      std::string decrypt(std::string msg){
+	return fromInt(decode(unzip(msg)));
+      }
+
+      RSA(unsigned int bits) : r(gmp_randinit_default){
+	r.seed(rand());
+	mpz_class p = randPrime(bits);
+	mpz_class q = randPrime(bits);
+	mpz_class n = p*q;
+	mpz_class T = (p-1)*(q-1);
+    
+	mpz_class ran;
+	mpz_class gcd;
+	mpz_class e;
+	do{
+	  e = r.get_z_range(USHRT_MAX)+USHRT_MAX; // Slightly more secure but terrible performance. Doesn't really matter though
+	  mpz_gcd(gcd.get_mpz_t(), T.get_mpz_t(), e.get_mpz_t()); // check if coprime
+	} while(gcd!=1);
+
+	mpz_class d = modInv(e, T);
+
+	public_key.first = n;
+	public_key.second = e;
+	private_key = d;
+      }
+    private:
+      mpz_class private_key;
+  
+      std::string fromInt(mpz_class input){
+	char *str = (char*)malloc(mpz_sizeinbase(public_key.first.get_mpz_t(), 2));
+	mpz_export(str, nullptr, 1, 1, 1, 0, input.get_mpz_t());
+	return str;
+      }
+      
+      mpz_class randPrime(unsigned int bits){
+	mpz_class ran;
+	bool found;
+      top:
+	found = true;
+	ran = r.get_z_bits(bits);
+	if(!mpz_probab_prime_p(ran.get_mpz_t(), 100)) // muler-rabbin
+	  goto top;
+    
+	return ran;
+      }
+      mpz_class modInv(mpz_class a, mpz_class m){
+	mpz_class m0 = m; 
+	mpz_class y = 0, x = 1; 
+
+	if (m == 1) 
+	  return 0;
+    
+	mpz_class q, t;
+	while (a > 1){ 
+	  q = a / m; 
+	  t = m; 
+	  m = a % m, a = t;
+	  t = y; 
+	  y = x - q * y; 
+	  x = t; 
+	} 
+	if (x < 0) 
+	  x += m0; 
+  
+	return x; 
+      }
+  
+      mpz_class unzip(std::string input){
+	size_t padding = mpz_sizeinbase(public_key.first.get_mpz_t(), 2);
+	std::string dec = base64_decode(input);
+	mpz_class ret;
+	mpz_import(ret.get_mpz_t(), dec.length(), 1, 1, 1, 0, dec.c_str());
+	return ret;
+      }
+
+      mpz_class decode(mpz_class c){
+	mpz_class m;
+	mpz_powm(m.get_mpz_t(), c.get_mpz_t(), private_key.get_mpz_t(), public_key.first.get_mpz_t());
+	return m;
+      }
+    };
+
+    RSA* rsaCore;
+    std::string SHA_string;
+    std::pair<mpz_class,mpz_class> unpacked_key;
+    
+    EncryptionManager(unsigned int bits): rr(gmp_randinit_default){ // we're sending out the public key
+      rr.seed(rand());
+      rsaCore = new RSA(bits);
+    }
+    EncryptionManager(std::string key): rr(gmp_randinit_default){ // we're recieving the public key and generating a pass for SHA
+      rr.seed(rand());
+      unpacked_key = unpackKey(key);
+
+      for(int i=0; i<key.length()/2; ++i){
+	mpz_class x = rr.get_z_range(94);
+	SHA_string+=(char)(x.get_ui()+32); // generate random aplha pass
+      }                                    // I tried the full range of chars but that really didnt work 
+    }
+
+    std::string getPublicKey(){
+      if(rsaCore==nullptr)
+	throw std::invalid_argument("This object doesn't have a core attached");
+      return packKey(rsaCore->public_key);
+    }
+
+    std::string getKeyResponse(){
+      return encrypt(SHA_string, unpacked_key);
+    }
+
+    void registerPass(std::string in){
+      in = rsaCore->decrypt(in);
+      SHA_string = in;
+    }
+
+  };
 }
 
+using namespace RSA;
+
 int main(){
-
   srand(time(NULL));
-  
-  while(true){
-    RSA::RSA obj(4098);
-  
-    std::string packed_key = RSA::packKey(obj.public_key);
-  
-    auto unpacked_key = RSA::unpackKey(packed_key);
 
-    cout << packed_key << endl << endl;
-  
-    string send = "Here we go, test time to see if this works. TOURTURE TIME!";
+  EncryptionManager Allice(10000);
 
-    string recv = obj.decrypt(RSA::encrypt(send, unpacked_key));
-    assert(send==recv);
-  }
+  cout << "First, send the public key:" << endl;
+  std::string msg = Allice.getPublicKey();
+  cout << msg << endl << endl;
+  
+  EncryptionManager Bob(msg);
+
+  msg = Bob.getKeyResponse();
+
+  cout << "Then, send an encrypted response containing a SHA password:" << endl;
+  cout << msg << endl << endl;
+
+  Allice.registerPass(msg);
+  assert(Allice.SHA_string == Bob.SHA_string);
+  cout << "Register password on side one. Recieved password is below:" << endl;
+  cout << Allice.SHA_string << endl << endl;
   return 0;
 }
