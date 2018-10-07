@@ -6,3 +6,6 @@ clean:
 
 run:	edit
 	./a.out
+
+debug: edit
+	valgrind --leak-check=full ./a.out	
