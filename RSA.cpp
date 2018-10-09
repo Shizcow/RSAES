@@ -484,31 +484,33 @@ namespace RSA{
     return in;
   }
   
-  std::vector<unsigned char> &expand_key_128(std::vector<unsigned char> &in) {
-    in.reserve(176);
+  std::array<unsigned char, 176> expand_key(std::array<unsigned char, 16> in) { // 128 bit key
+    std::array<unsigned char, 176> out;
+    std::copy_n(in.begin(), 16, out.begin());
     unsigned char t[4], c = 16, i = 1, a;
 
     while(c<176){
       
       for(a=0; a<4; a++) 
-	t[a] = in[a+c-4];
+	t[a] = out[a+c-4];
       
       if(c%16==0)
 	schedule_core(t,i++);
       
       for(a = 0; a<4; a++)
-	in[c] = in[c++-16]^t[a];
+	out[c] = out[c++-16]^t[a];
     }
-    return in;
+    return out;
   }
 
-  std::vector<unsigned char> &expand_key_256(std::vector<unsigned char> &in){
-    in.reserve(240);
+  std::array<unsigned char, 240> expand_key(std::array<unsigned char, 32> in){ // 256 bit key
+    std::array<unsigned char, 240> out;
+    std::copy_n(in.begin(), 32, out.begin());
     unsigned char t[4], c=32, i=1, a;
     while(c < 240) {
       
       for(a=0; a<4; a++) 
-	t[a] = in[a+c-4];
+	t[a] = out[a+c-4];
       
       if(c%32==0)
 	schedule_core(t,i++);
@@ -518,18 +520,20 @@ namespace RSA{
 	  t[a] = sbox(t[a]);
       
       for(a = 0; a < 4; a++)
-	in[c] = in[c++-32]^t[a];
+	out[c] = out[c++-32]^t[a];
     }
-    return in;
+    return out;
   }
 
-  std::vector<unsigned char> &expand_key_512(std::vector<unsigned char> &in){
-    in.reserve(368);
-    unsigned char t[4], c=64, i=1, a;
+  std::array<unsigned char, 368> expand_key(std::array<unsigned char, 64> in){ // 512 bit key
+    std::array<unsigned char, 368> out;
+    std::copy_n(in.begin(), 64, out.begin());
+    unsigned char t[4], i=1, a;
+    unsigned int c=64;
     while(c < 368) {
       
       for(a=0; a<4; a++) 
-	t[a] = in[a+c-4];
+	t[a] = out[a+c-4];
       
       if(c%64==0)
 	schedule_core(t,i++);
@@ -543,18 +547,21 @@ namespace RSA{
 	  t[a] = sbox(sbox(t[a]));
       
       for(a = 0; a < 4; a++)
-	in[c] = in[c++-64]^t[a];
+	out[c] = out[c++-64]^t[a];
+
     }
-    return in;
+    return out;
   }
 
-  std::vector<unsigned char> &expand_key_1024(std::vector<unsigned char> &in){
-    in.reserve(624);
-    unsigned char t[4], c=128, i=1, a;
+  std::array<unsigned char, 624> expand_key(std::array<unsigned char, 128> in){ // 1024 bit key
+    std::array<unsigned char, 624> out;
+    std::copy_n(in.begin(), 128, out.begin());
+    unsigned char t[4], i=1, a;
+    unsigned int c=128;
     while(c < 624) {
       
       for(a=0; a<4; a++) 
-	t[a] = in[a+c-4];
+	t[a] = out[a+c-4];
       
       if(c%128==0)
 	schedule_core(t,i++);
@@ -572,9 +579,9 @@ namespace RSA{
 	  t[a] = sbox(sbox(sbox(t[a])));
       
       for(a = 0; a < 4; a++)
-	in[c] = in[c++-128]^t[a];
+	out[c] = out[c++-128]^t[a];
     }
-    return in;
+    return out;
   }
 
 }
@@ -583,7 +590,9 @@ using namespace RSA;
 
 int main(){
 
-
+  std::array<unsigned char, 128> key;
+  for(auto &a: expand_key(key))
+    cout << (int)a << endl;
   
   return 0;
 }
