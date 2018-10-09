@@ -696,6 +696,14 @@ namespace RSA{
     mixColumn(in[3]);
     return in;
   }
+
+  unsigned char (&unmixColumns(unsigned char (&in)[4][4]))[4][4] {
+    unmixColumn(in[0]);
+    unmixColumn(in[1]);
+    unmixColumn(in[2]);
+    unmixColumn(in[3]);
+    return in;
+  }
   
   
 }
