@@ -596,8 +596,8 @@ namespace RSA{
   };
 
   unsigned char (&addRoundKey(unsigned char (&in)[4][4], std::array<unsigned char, 16> &key))[4][4]{
-    for(int i=0; i<4; ++i)
-      for(int j=0; j<4; ++j)
+    for(char i=0; i<4; ++i)
+      for(char j=0; j<4; ++j)
 	in[i][j]^=key[4*i+j];
     return in;
   }
