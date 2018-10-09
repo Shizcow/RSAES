@@ -9,9 +9,6 @@
 #include <array>
 #include <cstdint>
 
-
-using namespace std;
-
 namespace RSA{
   static const std::string base64_chars = 
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -290,29 +287,29 @@ namespace RSA{
 
   };
 
-  void test(unsigned int bits){
+  void testRSA(unsigned int bits){
 
     EncryptionManager Allice(bits);
     
-    cout << "First, send the public key:" << endl;
+    std::cout << "First, send the public key:" << std::endl;
     std::string msg = Allice.getPublicKey();
-    cout << msg << endl << endl;
+    std::cout << msg << std::endl << std::endl;
     
     EncryptionManager Bob(msg);
     
     msg = Bob.getKeyResponse();
     
-    cout << "Then, send an encrypted response containing a SHA password:" << endl;
-    cout << msg << endl << endl;
+    std::cout << "Then, send an encrypted response containing a SHA password:" << std::endl;
+    std::cout << msg << std::endl << std::endl;
     
     Allice.registerPass(msg);
     assert(Allice.SHA_string == Bob.SHA_string);
-    cout << "Register password on side one. Recieved password is below:" << endl;
-    cout << Allice.SHA_string << endl << endl;
+    std::cout << "Register password on side one. Recieved password is below:" << std::endl;
+    std::cout << Allice.SHA_string << std::endl << std::endl;
   }
 
-  void test(){
-    test(256);
+  void testRSA(){
+    testRSA(256);
   }
 
   //starting AES stuff
@@ -584,15 +581,62 @@ namespace RSA{
     return out;
   }
 
+  
+  template<size_t size>
+  struct key{
+    std::array<unsigned char, size*4+112> expanded_key;
+    unsigned int idx;
+    key(std::array<unsigned char, size> in) : expanded_key(expand_key(in)), idx(0) {}
+    std::array<unsigned char, 16> getRoundKey(){
+      std::array<unsigned char, 16> ret;
+      std::copy_n(expanded_key.begin()+idx*16, 16, ret.begin());
+      return ret;
+    }
+    inline void advanceRound(){++idx;}
+  };
+
+  unsigned char (&addRoundKey(unsigned char (&in)[4][4], std::array<unsigned char, 16> &key))[4][4]{
+    for(int i=0; i<4; ++i)
+      for(int j=0; j<4; ++j)
+	in[i][j]^=key[4*i+j];
+    return in;
+  }
+
 }
 
 using namespace RSA;
+using namespace std;
 
 int main(){
 
-  std::array<unsigned char, 128> key;
-  for(auto &a: expand_key(key))
-    cout << (int)a << endl;
+  std::array<unsigned char, 16> a;
+  
+  key obj(a);
+
+  unsigned char b[4][4];
+  for(auto &row: b){
+    for(auto &elem: row)
+      cout << (int)elem << ' ';
+    putchar('\n');
+  }
+
+  putchar('\n');
+  
+  auto arr = obj.getRoundKey();
+  for(int i=0; i<4; ++i){
+    for(int j=0; j<4; ++j)
+      cout << (int)arr[4*i+j] << ' ';
+    putchar('\n');
+  }
+
+  putchar('\n');
+  addRoundKey(b, arr);
+  b[4][4];
+  for(auto &row: b){
+    for(auto &elem: row)
+      cout << (int)elem << ' ';
+    putchar('\n');
+  }
   
   return 0;
 }

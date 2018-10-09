@@ -1,5 +1,5 @@
 edit:
-	g++ -lgmpxx -lgmp -g RSA.cpp
+	g++ -lgmpxx -lgmp -g -std=c++17 RSA.cpp
 
 clean:
 	rm a.out
