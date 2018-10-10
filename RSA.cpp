@@ -9,7 +9,7 @@
 #include <array>
 #include <cstdint>
 
-namespace RSA{
+namespace ENC{
   static const std::string base64_chars = 
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "abcdefghijklmnopqrstuvwxyz"
@@ -390,7 +390,7 @@ namespace RSA{
     return in;
   }
 
-  std::array<unsigned char, 176> expand_key(std::array<unsigned char, 16> in) { // 128 bit key
+  /*std::array<unsigned char, 176> expand_key(std::array<unsigned char, 16> in) { // 128 bit key
     std::array<unsigned char, 176> out;
     std::copy_n(in.begin(), 16, out.begin());
     unsigned char t[4], c = 16, i = 1, a;
@@ -488,42 +488,7 @@ namespace RSA{
 	out[c] = out[c++-128]^t[a];
     }
     return out;
-  }
-
-  
-  template<size_t size>
-  struct AESkey{
-    std::array<unsigned char, size*4+112> expanded_key;
-    unsigned int idx;
-    bool mode; // true = forward, false = backward
-    AESkey(std::array<unsigned char, size> in) : expanded_key(expand_key(in)), idx(0), mode(true) {}
-    AESkey() : idx(0), mode(true){
-      std::array<unsigned char, size> arr;
-      for(int i=0; i<size; ++i)
-	arr[i] = rand()%256;
-      expanded_key = expand_key(arr);
-    }
-    std::array<unsigned char, 16> getRoundKey(bool B = false){
-      std::array<unsigned char, 16> ret;
-      std::copy_n(expanded_key.begin()+idx*16, 16, ret.begin());
-      if(B)advanceRound();
-      return ret;
-    }
-    void advanceRound(){
-      if(mode)
-	++idx;
-      else
-	--idx;
-    }
-    void setStart(){
-      idx=0;
-      mode = true;
-    }
-    void setEnd(){
-      idx=log2(size)*2+2;
-      mode=false;
-    }
-  };
+    }*/
 
   unsigned char (&addRoundKey(unsigned char (&in)[4][4], std::array<unsigned char, 16> key))[4][4]{
     for(char i=0; i<4; ++i)
@@ -705,9 +670,79 @@ namespace RSA{
     return in;
   }
 
+  std::vector<unsigned char> expand_key(std::vector<unsigned char> in){ // N bit key
+    unsigned long long int base_size = in.size(), size_e = base_size*4+112, c = base_size;
+    std::cout << size_e << std::endl;
+    std::vector<unsigned char> out;
+    out.resize(base_size*4+113);
+    std::copy_n(in.begin(), 64, out.begin());
+    
+    unsigned char t[4], i=1, a;
+    while(c < size_e) {
+      
+      for(a=0; a<4; a++) 
+	t[a] = out[a+c-4];
+      
+      if(c%base_size==0)
+	schedule_core(t,i++);
 
-  template<size_t N>
-  unsigned char (&AES_small_encrypt(unsigned char (&in)[4][4], AESkey<N> expanded_key))[4][4]{
+      else if(c%base_size%16==0)
+	for(int j = 16; j<base_size; j*=2)
+	  if(c%j==0)
+	    for(a = 0; a < 4; a++) 
+	      t[a] = sbox(t[a]);
+      
+      
+      for(a = 0; a < 4; a++)
+	out[c] = out[c++-base_size]^t[a];
+
+    }
+    return out;
+  }
+  
+  struct AESkey{
+    std::vector<unsigned char> expanded_key;
+    unsigned int idx;
+    bool mode; // true = forward, false = backward
+    size_t base, size_e;
+    AESkey(std::vector<unsigned char> in) : idx(0), mode(true){
+      base = in.size();
+      size_e = base*4+112;
+      expanded_key = expand_key(in);
+    }
+    AESkey(size_t _base) : idx(0), mode(true){
+      base = _base;
+      size_e = base*4+112;
+      std::vector<unsigned char> vec;
+      vec.reserve(base);
+      for(int i=0; i<base; ++i)
+	vec.push_back(rand()%256);
+      expanded_key = expand_key(vec);
+    }
+    std::array<unsigned char, 16> getRoundKey(bool B = false){
+      std::array<unsigned char, 16> ret;
+      std::copy_n(expanded_key.begin()+idx*16, 16, ret.begin());
+      if(B)advanceRound();
+      return ret;
+    }
+    void advanceRound(){
+      if(mode)
+	++idx;
+      else
+	--idx;
+    }
+    void setStart(){
+      idx=0;
+      mode = true;
+    }
+    void setEnd(){
+      idx=log2(base)*2+2;
+      mode=false;
+    }
+  };
+
+  unsigned char (&AES_small_encrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
+    unsigned int N = expanded_key.base;
     expanded_key.setStart();
     addRoundKey(in, expanded_key.getRoundKey(true));
     for(int i=0; i<log2(N)*2+1; ++i){
@@ -721,8 +756,8 @@ namespace RSA{
     addRoundKey(in, expanded_key.getRoundKey(false));
     return in;
   }
-  template<size_t N>
-  unsigned char (&AES_small_decrypt(unsigned char (&in)[4][4], AESkey<N> expanded_key))[4][4]{
+  unsigned char (&AES_small_decrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
+    unsigned int N = expanded_key.base;
     expanded_key.setEnd();
     
     addRoundKey(in, expanded_key.getRoundKey(true));
@@ -741,14 +776,22 @@ namespace RSA{
 
 }
 
-using namespace RSA;
+using namespace ENC;
 using namespace std;
 
 
 int main(){
   srand(time(NULL));
 
-  AESkey<128> bits;
+  unsigned int bits_size = 2<<29;
+  cout << bits_size << endl;
+  
+  std::vector<unsigned char> arr_b;
+  arr_b.reserve(bits_size/8);
+  for(unsigned int i=0; i<bits_size/8; ++i)
+    arr_b.push_back(i);
+  
+  AESkey bits(arr_b);
 
   unsigned char arr[4][4] = {{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}, {13, 14, 15, 16}};
 
