@@ -389,7 +389,7 @@ namespace RSA{
     in[0] ^= rcon(i);
     return in;
   }
-  
+
   std::array<unsigned char, 176> expand_key(std::array<unsigned char, 16> in) { // 128 bit key
     std::array<unsigned char, 176> out;
     std::copy_n(in.begin(), 16, out.begin());
@@ -466,7 +466,7 @@ namespace RSA{
     unsigned int c=128;
     while(c < 624) {
       
-      for(a=0; a<4; a++) 
+      for(a=0; a<4; a++)
 	t[a] = out[a+c-4];
       
       if(c%128==0)
@@ -492,26 +492,47 @@ namespace RSA{
 
   
   template<size_t size>
-  struct key{
+  struct AESkey{
     std::array<unsigned char, size*4+112> expanded_key;
     unsigned int idx;
-    key(std::array<unsigned char, size> in) : expanded_key(expand_key(in)), idx(0) {}
-    std::array<unsigned char, 16> getRoundKey(){
+    bool mode; // true = forward, false = backward
+    AESkey(std::array<unsigned char, size> in) : expanded_key(expand_key(in)), idx(0), mode(true) {}
+    AESkey() : idx(0), mode(true){
+      std::array<unsigned char, size> arr;
+      for(int i=0; i<size; ++i)
+	arr[i] = rand()%256;
+      expanded_key = expand_key(arr);
+    }
+    std::array<unsigned char, 16> getRoundKey(bool B = false){
       std::array<unsigned char, 16> ret;
       std::copy_n(expanded_key.begin()+idx*16, 16, ret.begin());
+      if(B)advanceRound();
       return ret;
     }
-    inline void advanceRound(){++idx;}
+    void advanceRound(){
+      if(mode)
+	++idx;
+      else
+	--idx;
+    }
+    void setStart(){
+      idx=0;
+      mode = true;
+    }
+    void setEnd(){
+      idx=log2(size)*2+2;
+      mode=false;
+    }
   };
 
-  unsigned char (&addRoundKey(unsigned char (&in)[4][4], std::array<unsigned char, 16> &key))[4][4]{
+  unsigned char (&addRoundKey(unsigned char (&in)[4][4], std::array<unsigned char, 16> key))[4][4]{
     for(char i=0; i<4; ++i)
       for(char j=0; j<4; ++j)
 	in[i][j]^=key[4*i+j];
     return in;
   }
 
-  unsigned char (&shiftrRows_encrypt(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
+  unsigned char (&shiftrows(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
     unsigned char tmp = rows[1][0];
     rows[1][0] = rows[1][1];
     rows[1][1] = rows[1][2];
@@ -533,7 +554,7 @@ namespace RSA{
 
     return rows;
   }
-  unsigned char (&shiftRows_decrypt(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
+  unsigned char (&unshiftrows(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
     unsigned char tmp = rows[1][0];
     rows[1][0] = rows[1][3];
     rows[1][3] = rows[1][2];
@@ -605,7 +626,6 @@ namespace RSA{
 			       0x3b, 0x52, 0x6f, 0xf6, 0x2e, 0x89, 0xf7, 0xc0, 
 			       0x68, 0x1b, 0x64, 0x04, 0x06, 0xbf, 0x83, 0x38 };
 
-  /* Anti-log table: */
   unsigned char atable[256] = {
 			       0x01, 0xe5, 0x4c, 0xb5, 0xfb, 0x9f, 0xfc, 0x12, 
 			       0x03, 0x34, 0xd4, 0xc4, 0x16, 0xba, 0x1f, 0x36, 
@@ -641,30 +661,10 @@ namespace RSA{
 			       0xaa, 0xcd, 0x9a, 0xa0, 0x75, 0x54, 0x0e, 0x01 };
 
   unsigned char gmul(unsigned char a, unsigned char b) {
-    int s;
-    int q;
-    int z = 0;
-    s = ltable[a] + ltable[b];
-    s %= 255;
-    /* Get the antilog */
-    s = atable[s];
-    /* Now, we have some fancy code that returns 0 if either
-       a or b are zero; we write the code this way so that the
-       code will (hopefully) run at a constant speed in order to
-       minimize the risk of timing attacks */
-    q = s;
-    if(a == 0) {
-      s = z;
-    }
-    else {
-      s = q;
-    }
-    if(b == 0) {
-      s = z;
-    } 
-    else {
-      q = z;
-    }
+    unsigned char s = atable[(ltable[a] + ltable[b])%255], q = s, z = 0;
+    if(a==0)
+      s=z;
+    (b==0?s:q)=z;
     return s;
   }
 
@@ -704,8 +704,41 @@ namespace RSA{
     unmixColumn(in[3]);
     return in;
   }
-  
-  
+
+
+  template<size_t N>
+  unsigned char (&AES_small_encrypt(unsigned char (&in)[4][4], AESkey<N> expanded_key))[4][4]{
+    expanded_key.setStart();
+    addRoundKey(in, expanded_key.getRoundKey(true));
+    for(int i=0; i<log2(N)*2+1; ++i){
+      subBytes_encrypt(in);
+      shiftrows(in);
+      mixColumns(in);
+      addRoundKey(in, expanded_key.getRoundKey(true));
+    }
+    subBytes_encrypt(in);
+    shiftrows(in);
+    addRoundKey(in, expanded_key.getRoundKey(false));
+    return in;
+  }
+  template<size_t N>
+  unsigned char (&AES_small_decrypt(unsigned char (&in)[4][4], AESkey<N> expanded_key))[4][4]{
+    expanded_key.setEnd();
+    
+    addRoundKey(in, expanded_key.getRoundKey(true));
+    unshiftrows(in);
+    subBytes_decrypt(in);
+    
+    for(int i=0; i<log2(N)*2+1; ++i){
+      addRoundKey(in, expanded_key.getRoundKey(true));
+      unmixColumns(in);
+      unshiftrows(in);
+      subBytes_decrypt(in);
+    }
+    addRoundKey(in, expanded_key.getRoundKey(false));
+    return in;
+  }
+
 }
 
 using namespace RSA;
@@ -713,14 +746,29 @@ using namespace std;
 
 
 int main(){
+  srand(time(NULL));
 
-  unsigned char arr[4] = {1, 2, 3, 4};
+  AESkey<128> bits;
 
-  mixColumn(arr);
-  unmixColumn(arr);
-  for(auto &e: arr)
-    cout << (int)e << ' ';
+  unsigned char arr[4][4] = {{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}, {13, 14, 15, 16}};
 
-  cout << endl;
+  AES_small_encrypt(arr, bits);
+  
+  for(int i=0; i<4; ++i){
+    unsigned char (&row)[4] = arr[i];
+    for(auto el: row)
+      cout << (int)el << ' ';
+    cout << endl;
+  }
+  
+  AES_small_decrypt(arr, bits);
+
+  for(int i=0; i<4; ++i){
+    unsigned char (&row)[4] = arr[i];
+    for(auto el: row)
+      cout << (int)el << ' ';
+    cout << endl;
+  }
+    
   return 0;
 }
