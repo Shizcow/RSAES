@@ -646,22 +646,20 @@ namespace ENC{
     gmp_randclass rr;
 
     RSA::RSAmanager* rsaCore;
-    std::string SHA_string;
-    std::pair<mpz_class,mpz_class> *unpacked_key; // saves a little ram
+    AES::AESkey* AES_key;
+    std::pair<mpz_class,mpz_class> *unpacked_key;
     
-    EncryptionManager(unsigned int AESbits): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr){ // we're sending out the public key
+    EncryptionManager(unsigned int AESbits): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're sending out the public key
       unsigned int msgLen = AESbits/8;
       rr.seed(rand());
       rsaCore = new RSA::RSAmanager(AESbits);
     }
-    EncryptionManager(std::string key): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr){ // we're recieving the public key and generating a pass for SHA
+    EncryptionManager(std::string key): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're recieving the public key and generating a pass for AES
       rr.seed(rand());
       unpacked_key = RSA::unpackKey(key);
 
-      for(int i=0; i<key.length()/2; ++i){
-	mpz_class x = rr.get_z_range(94);
-	SHA_string+=(char)(x.get_ui()+32); // generate random aplha pass
-      }                                    // I tried the full range of chars but that really didnt work 
+      //generate random pass
+      AES_key = new AES::AESkey(128);
     }
 
     ~EncryptionManager(){
@@ -669,16 +667,26 @@ namespace ENC{
 	delete rsaCore;
       if(unpacked_key!=nullptr)
 	delete unpacked_key;
+      if(AES_key!=nullptr)
+	delete AES_key;
     }
 
     std::string getPublicKey(){
       if(rsaCore==nullptr)
-	throw std::invalid_argument("This object doesn't have a core attached");
+	throw std::runtime_error("This object doesn't have a core attached");
       return RSA::packKey(rsaCore->public_key);
     }
 
     std::string getKeyResponse(){
-      std::string ret = RSA::encrypt(SHA_string, unpacked_key);
+      if(AES_key==nullptr)
+	throw std::runtime_error("This object hasn't been initilized correctly");
+      
+      auto p = AES_key->expanded_key.begin();
+      std::vector<unsigned char> exp(p, p+AES_key->base); // send the un-expanded key so that we need less data to send
+      
+      std::string AES_string(exp.begin(), exp.end());
+      
+      std::string ret = RSA::encrypt(AES_string, unpacked_key);
       delete unpacked_key; // might as well get rid of this
       unpacked_key = nullptr;
       return ret;
@@ -686,25 +694,71 @@ namespace ENC{
 
     void registerPass(std::string in){
       in = rsaCore->decrypt(in);
-      SHA_string = in;
+      std::vector<unsigned char> exp(in.begin(), in.end());
+
+      AES_key = new AES::AESkey(exp);
       delete rsaCore; // dont need this anymore either
       rsaCore = nullptr;
     }
+
+    std::string encrypt(std::string input){
+      if(AES_key==nullptr)
+	throw std::runtime_error("Object not properly initialized");
+      return AES::big_encrypt(input, *AES_key);
+    }
+
+    std::string decrypt(std::string input){
+      if(AES_key==nullptr)
+	throw std::runtime_error("Object not properly initialized");
+      return AES::big_decrypt(input, *AES_key);
+    }
   };
 
+  bool EncryptionManagerTest(){
+    try{
+      std::cout << "Start encryption manager 1 and grab the RSA public key:" << std::endl;
+      EncryptionManager Bob(64);
+      std::string msg = Bob.getPublicKey();
+      std::cout << msg << std::endl << std::endl;
+
+      std::cout << "Start encryption manager 2, generate a random AES key, and send it back encrypted over RSA:" << std::endl;
+      EncryptionManager Allice(msg);
+      msg = Allice.getKeyResponse();
+      std::cout << msg << std::endl << std::endl;
+
+      std::cout << "Register the AES key with manager 1. Now we can send a message:" << std::endl;
+      Bob.registerPass(msg);
+      msg = "Bepis";
+      msg = Bob.encrypt(msg);
+      std::cout << msg << std::endl << std::endl;
+
+      std::cout << "Now we can decrypt it using manager 2:" << std::endl;
+      msg = Allice.decrypt(msg);
+      std::cout << msg << std::endl << std::endl;
+
+  
+      std::cout << "Now let's go the other way. Encrypt with manager 2:" << std::endl;
+      msg = "Bogobepis";
+      msg = Allice.encrypt(msg);
+      std::cout << msg << std::endl << std::endl;
+
+      std::cout << "And decrypt with manager 1:" << std::endl;
+      msg = Bob.decrypt(msg);
+      std::cout << msg << std::endl << std::endl;
+    } catch (const std::runtime_error& error){
+      return false;
+    }
+    return true;
+  }
 }
 
-using namespace ENC::AES;
+using namespace ENC;
 using namespace std;
 
 int main(){
   srand(time(NULL));
 
-  AESkey bits(128);
-
-  string msg = big_encrypt("Alright, here we go. This should be a big improvement over RSA sizes with respect to the size of data we have to send, as well as the size of data we CAN send, considering that AES can go forever where RSA has limited packet sizes.", bits);
-  cout << msg << endl;
-  msg = big_decrypt(msg, bits);
-  cout << msg << endl;
+  EncryptionManagerTest();
+  
   return 0;
 }
