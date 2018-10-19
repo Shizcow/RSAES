@@ -544,12 +544,12 @@ namespace ENC{
 	std::vector<unsigned char> vec;
 	vec.reserve(base);
 	for(int i=0; i<base; ++i)
-	  vec.push_back(rand()%255);
+	  vec.push_back(rand()%254+1); // it doesn't like 0 for some reason
 	expanded_key = expand_key(vec);
       }
       ~AESkey(){ // clear ram just in case
 	for(auto &e: expanded_key)
-	  e = rand()%255;
+	e = rand()%255;
 	idx = 0;
 	mode = true;
 	base = size_e = 0;
@@ -693,6 +693,9 @@ namespace ENC{
       }
       if(AES_key!=nullptr)
 	delete AES_key;
+      rsaCore=nullptr;
+      unpacked_key=nullptr;
+      AES_key=nullptr;
     }
 
     std::string getPublicKey(){
@@ -754,23 +757,24 @@ namespace ENC{
 
       std::cout << "Register the AES key with manager 1. Now we can send a message:" << std::endl;
       Bob.registerPass(msg);
-      msg = "Bepis";
-      msg = Bob.encrypt(msg);
+      std::string msg_s = "Bepis";
+      msg = Bob.encrypt(msg_s);
       std::cout << msg << std::endl << std::endl;
 
       std::cout << "Now we can decrypt it using manager 2:" << std::endl;
       msg = Allice.decrypt(msg);
       std::cout << msg << std::endl << std::endl;
-
+      assert(msg==msg_s);
   
       std::cout << "Now let's go the other way. Encrypt with manager 2:" << std::endl;
-      msg = "Bogobepis";
-      msg = Allice.encrypt(msg);
+      msg_s = "Bogobepis";
+      msg = Allice.encrypt(msg_s);
       std::cout << msg << std::endl << std::endl;
 
       std::cout << "And decrypt with manager 1:" << std::endl;
       msg = Bob.decrypt(msg);
       std::cout << msg << std::endl << std::endl;
+      assert(msg==msg_s);
     } catch (const std::runtime_error& error){
       return false;
     }
@@ -784,7 +788,12 @@ using namespace std;
 int main(){
   srand(time(NULL));
 
-  EncryptionManagerTest();
+  for(int i=0; true; ++i){
+    EncryptionManagerTest();
+    cout << "-----------------------" << endl;
+    cout << "SUCESSFULL TESTS: " << i << endl << endl;
+    cout << "-----------------------" << endl;
+  }
   
   return 0;
 }
