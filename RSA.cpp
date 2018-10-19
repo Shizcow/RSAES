@@ -148,10 +148,10 @@ namespace ENC{
     }
 
   
-    struct RSAmanager{
-      gmp_randclass r; // maybe TODO: combine these two
+    class RSAmanager{
+    public:
       std::pair<mpz_class,mpz_class> public_key;
-    
+      
       std::string decrypt(std::string msg){
 	return fromInt(decode(unzip(msg)));
       }
@@ -177,8 +177,15 @@ namespace ENC{
 	public_key.second = e;
 	private_key = d;
       }
+      ~RSAmanager(){ // clear ram just in case
+	public_key.first = r.get_z_bits(mpz_sizeinbase(public_key.first.get_mpz_t(), 256)*8); // round up to byte
+	public_key.second = r.get_z_bits(mpz_sizeinbase(public_key.second.get_mpz_t(), 256)*8);
+	private_key = r.get_z_bits(mpz_sizeinbase(private_key.get_mpz_t(), 256)*8);
+	r.seed(0);
+      }
       
     private:
+      gmp_randclass r;
       mpz_class private_key;
   
       std::string fromInt(mpz_class input){
@@ -201,8 +208,8 @@ namespace ENC{
 	return ran;
       }
       mpz_class modInv(mpz_class a, mpz_class m){
-	mpz_class m0 = m; 
-	mpz_class y = 0, x = 1; 
+	mpz_class m0 = m;
+	mpz_class y = 0, x = 1;
 
 	if (m == 1) 
 	  return 0;
@@ -537,8 +544,15 @@ namespace ENC{
 	std::vector<unsigned char> vec;
 	vec.reserve(base);
 	for(int i=0; i<base; ++i)
-	  vec.push_back(rand()%256);
+	  vec.push_back(rand()%255);
 	expanded_key = expand_key(vec);
+      }
+      ~AESkey(){ // clear ram just in case
+	for(auto &e: expanded_key)
+	  e = rand()%255;
+	idx = 0;
+	mode = true;
+	base = size_e = 0;
       }
       std::array<unsigned char, 16> getRoundKey(bool B = false){
 	std::array<unsigned char, 16> ret;
@@ -642,31 +656,41 @@ namespace ENC{
     }
   }
   
-  struct EncryptionManager{
+  class EncryptionManager{
+    private:
     gmp_randclass rr;
-
     RSA::RSAmanager* rsaCore;
     AES::AESkey* AES_key;
     std::pair<mpz_class,mpz_class> *unpacked_key;
     
-    EncryptionManager(unsigned int AESbits): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're sending out the public key
-      unsigned int msgLen = AESbits/8;
+  public:
+    EncryptionManager(unsigned int RSAbits): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're sending out the public key
+      unsigned int msgLen = RSAbits/8;
       rr.seed(rand());
-      rsaCore = new RSA::RSAmanager(AESbits);
+      rsaCore = new RSA::RSAmanager(RSAbits);
     }
     EncryptionManager(std::string key): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're recieving the public key and generating a pass for AES
       rr.seed(rand());
       unpacked_key = RSA::unpackKey(key);
 
+      size_t AESbits = pow(2,(size_t)log2(mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 2))+1);
       //generate random pass
-      AES_key = new AES::AESkey(128);
+      AES_key = new AES::AESkey(AESbits);
+    }
+    EncryptionManager(std::string key, size_t AESbits): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // specify AES size
+      rr.seed(rand());
+      unpacked_key = RSA::unpackKey(key);
+      AES_key = new AES::AESkey(AESbits);
     }
 
     ~EncryptionManager(){
       if(rsaCore!=nullptr)
 	delete rsaCore;
-      if(unpacked_key!=nullptr)
+      if(unpacked_key!=nullptr){
+	unpacked_key->first = rr.get_z_bits(mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 256)*8); // clear ram just in case
+	unpacked_key->second = rr.get_z_bits(mpz_sizeinbase(unpacked_key->second.get_mpz_t(), 256)*8);
 	delete unpacked_key;
+      }
       if(AES_key!=nullptr)
 	delete AES_key;
     }
@@ -687,6 +711,8 @@ namespace ENC{
       std::string AES_string(exp.begin(), exp.end());
       
       std::string ret = RSA::encrypt(AES_string, unpacked_key);
+      unpacked_key->first = rr.get_z_bits(mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 256)*8); // clear ram just in case
+      unpacked_key->second = rr.get_z_bits(mpz_sizeinbase(unpacked_key->second.get_mpz_t(), 256)*8);
       delete unpacked_key; // might as well get rid of this
       unpacked_key = nullptr;
       return ret;
@@ -717,12 +743,12 @@ namespace ENC{
   bool EncryptionManagerTest(){
     try{
       std::cout << "Start encryption manager 1 and grab the RSA public key:" << std::endl;
-      EncryptionManager Bob(64);
+      EncryptionManager Bob(2048);
       std::string msg = Bob.getPublicKey();
       std::cout << msg << std::endl << std::endl;
 
       std::cout << "Start encryption manager 2, generate a random AES key, and send it back encrypted over RSA:" << std::endl;
-      EncryptionManager Allice(msg);
+      EncryptionManager Allice(msg, 256);
       msg = Allice.getKeyResponse();
       std::cout << msg << std::endl << std::endl;
 
