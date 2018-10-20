@@ -10,19 +10,24 @@
 #include <cstdint>
 
 namespace ENC{
-  static const std::string base64_chars = 
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "abcdefghijklmnopqrstuvwxyz"
-    "0123456789+/";
+  static const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+					'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
+					'.','/','0','1','2','3','4','5','6','7','8','9'};
 
-  static inline bool is_base64(unsigned char c) {
-    return (isalnum(c) || (c == '+') || (c == '/'));
+  static inline char find(char tofind){
+    return
+    (tofind>=97)? // a-z
+      tofind-71:
+    (tofind>=65)? // A-Z
+      tofind-65:
+    tofind+6;     // .-9
   }
 
-  std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) { // Credit to René Nyffenegger
+  std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len) { // Credit to René Nyffenegger, optimized myself
     std::string ret;
     int i = 0, j=0;
-    unsigned char char_array_3[3], char_array_4[4];
+    unsigned char char_array_3[7]; // Apparently this removes one syscall at the cost of using a little more ram
+    unsigned char *char_array_4 = char_array_3+3; // "Way" faster - SA
 
     while (in_len--) {
       char_array_3[i++] = *(bytes_to_encode++);
@@ -40,7 +45,7 @@ namespace ENC{
 
     if (i){
       for(j = i; j < 3; j++)
-	char_array_3[j] = '\0';
+	char_array_3[j] = 0;
 
       char_array_4[0] = ( char_array_3[0] & 0xfc) >> 2;
       char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
@@ -48,23 +53,21 @@ namespace ENC{
 
       for (j = 0; (j < i + 1); j++)
 	ret += base64_chars[char_array_4[j]];
-
-      while((i++ < 3))
-	ret += '=';
     }
     return ret;
   }
 
-  std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger
+  std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger, optimized myself
     std::string ret;
     int in_len = encoded_string.size(), i = 0, j = 0, in_ = 0;
-    unsigned char char_array_4[4], char_array_3[3];
+    unsigned char char_array_3[7]; // See above
+    unsigned char *char_array_4 = char_array_3+3;
 
-    while (in_len-- && ( encoded_string[in_] != '=') && is_base64(encoded_string[in_])) {
+    while (in_len--){
       char_array_4[i++] = encoded_string[in_]; in_++;
-      if (i ==4){
-	for (i = 0; i <4; i++)
-	  char_array_4[i] = base64_chars.find(char_array_4[i]);
+      if (i == 4){
+	for (i = 0; i < 4; i++)
+	  char_array_4[i] = find(char_array_4[i]);
 	
 	char_array_3[0] = ( char_array_4[0] << 2       ) + ((char_array_4[1] & 0x30) >> 4);
 	char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
@@ -78,7 +81,7 @@ namespace ENC{
     
     if (i){
       for (j = 0; j < i; j++)
-	char_array_4[j] = base64_chars.find(char_array_4[j]);
+	char_array_4[j] = find(char_array_4[j]);
       
       char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
       char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
@@ -549,7 +552,7 @@ namespace ENC{
       }
       ~AESkey(){ // clear ram just in case
 	for(auto &e: expanded_key)
-	e = rand()%255;
+	  e = rand()%255;
 	idx = 0;
 	mode = true;
 	base = size_e = 0;
@@ -744,37 +747,147 @@ namespace ENC{
   };
 
   bool EncryptionManagerTest(){
+    std::string word_bank[100] = {
+				  "pleasant",
+				  "foot",
+				  "elfin",
+				  "calendar",
+				  "settle",
+				  "size",
+				  "trip",
+				  "float",
+				  "sand",
+				  "good",
+				  "stain",
+				  "trite",
+				  "colorful",
+				  "street",
+				  "dusty",
+				  "range",
+				  "blot",
+				  "direction",
+				  "cent",
+				  "white",
+				  "angry",
+				  "sack",
+				  "wave",
+				  "weather",
+				  "stitch",
+				  "ritzy",
+				  "scintill",
+				  "deliver",
+				  "synonymo",
+				  "quicksan",
+				  "cub",
+				  "sofa",
+				  "callous",
+				  "disagree",
+				  "dashing",
+				  "daughter",
+				  "jar",
+				  "sniff",
+				  "ear",
+				  "powder",
+				  "wait",
+				  "shame",
+				  "needy",
+				  "dreary",
+				  "x-ray",
+				  "labored",
+				  "can",
+				  "incompet",
+				  "pricey",
+				  "jagged",
+				  "tangy",
+				  "amuck",
+				  "joke",
+				  "lacking",
+				  "wry",
+				  "astonish",
+				  "weary",
+				  "key",
+				  "ready",
+				  "kick",
+				  "fry",
+				  "offend",
+				  "late",
+				  "locket",
+				  "quaint",
+				  "tail",
+				  "bomb",
+				  "slim",
+				  "medical",
+				  "scatter",
+				  "painful",
+				  "van",
+				  "mighty",
+				  "arm",
+				  "amusemen",
+				  "wretched",
+				  "sparkle",
+				  "petite",
+				  "second-h",
+				  "stuff",
+				  "judiciou",
+				  "love",
+				  "unnatura",
+				  "screw",
+				  "miniatur",
+				  "groan",
+				  "abhorren",
+				  "step",
+				  "pink",
+				  "tick",
+				  "clever",
+				  "therapeu",
+				  "fuzzy",
+				  "language",
+				  "toothsom",
+				  "rabbits",
+				  "money",
+				  "early",
+				  "futurist",
+				  "material"
+    };
     try{
       std::cout << "Start encryption manager 1 and grab the RSA public key:" << std::endl;
-      EncryptionManager Bob(2048);
+      EncryptionManager Bob(256);
       std::string msg = Bob.getPublicKey();
       std::cout << msg << std::endl << std::endl;
 
       std::cout << "Start encryption manager 2, generate a random AES key, and send it back encrypted over RSA:" << std::endl;
-      EncryptionManager Allice(msg, 256);
+      EncryptionManager Allice(msg, 128);
       msg = Allice.getKeyResponse();
       std::cout << msg << std::endl << std::endl;
 
       std::cout << "Register the AES key with manager 1. Now we can send a message:" << std::endl;
       Bob.registerPass(msg);
-      std::string msg_s = "Bepis";
+      std::string msg_s = word_bank[rand()%100];
+      int words = rand()%100;
+      for(int i=0; i<words; ++i)
+	(msg_s+=' ')+=word_bank[rand()%100];
       msg = Bob.encrypt(msg_s);
       std::cout << msg << std::endl << std::endl;
 
       std::cout << "Now we can decrypt it using manager 2:" << std::endl;
       msg = Allice.decrypt(msg);
       std::cout << msg << std::endl << std::endl;
-      assert(msg==msg_s);
+      if(msg!=msg_s)
+	throw std::runtime_error("Messages aren't same");
   
       std::cout << "Now let's go the other way. Encrypt with manager 2:" << std::endl;
-      msg_s = "Bogobepis";
+      msg_s = word_bank[rand()%100];
+      words = rand()%100;
+      for(int i=0; i<words; ++i)
+	(msg_s+=' ')+=word_bank[rand()%100];
       msg = Allice.encrypt(msg_s);
       std::cout << msg << std::endl << std::endl;
 
       std::cout << "And decrypt with manager 1:" << std::endl;
       msg = Bob.decrypt(msg);
       std::cout << msg << std::endl << std::endl;
-      assert(msg==msg_s);
+      if(msg!=msg_s)
+	throw std::runtime_error("Messages aren't same");
     } catch (const std::runtime_error& error){
       return false;
     }
@@ -788,10 +901,14 @@ using namespace std;
 int main(){
   srand(time(NULL));
 
-  for(int i=0; true; ++i){
-    EncryptionManagerTest();
+  for(int i=0, f=0; true;){
+    if(EncryptionManagerTest())
+      ++i;
+    else
+      ++f;
     cout << "-----------------------" << endl;
-    cout << "SUCESSFULL TESTS: " << i << endl << endl;
+    cout << "SUCESSFULL TESTS: " << i << endl;
+    cout << "FAILED TESTS: " << f << endl;
     cout << "-----------------------" << endl;
   }
   
