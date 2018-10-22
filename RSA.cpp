@@ -18,7 +18,7 @@ namespace ENC{
   std::mt19937 mt(rd());
   std::uniform_int_distribution<unsigned short> dist_char(0, 255);
   std::uniform_int_distribution<unsigned long long int> dist_short(0, std::numeric_limits<unsigned short>::max());
-  std::uniform_int_distribution<unsigned long long int> dist_short_1(1, std::numeric_limits<unsigned short>::max());
+  std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
   std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
   
   static const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
@@ -562,8 +562,9 @@ namespace AES{
       vec.resize(base);
       unsigned short *ptr = reinterpret_cast<unsigned short*>(vec.data()); // I mean, it's faster
       size_t base_2 = base/2;
-      for(int i=0; i<base_2; ++i, ++ptr)
-	*ptr = dist_short_1(mt); // Why does this break when I use zero
+      for(int i=0; i<base_2; ++i, ++ptr){
+	*ptr = dist_char_1(mt)+(dist_char_1(mt)<<8); // Why does this break when I use zero
+      }
       expanded_key = expand_key(vec);
     }
     ~AESkey(){ // clear ram just in case
@@ -934,6 +935,6 @@ using namespace std;
 
 int main(){
 
-  EncryptionManagerTest();
+  EncryptionManagerTest(50);
   return 0;
 }
