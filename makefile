@@ -3,6 +3,7 @@ edit:
 
 clean:
 	rm -f a.out
+	rm -f vgcore*
 	rm -f valgrind*
 
 run:	edit
