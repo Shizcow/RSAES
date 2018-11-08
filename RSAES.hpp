@@ -7,19 +7,15 @@
 #include <vector>
 #include <cassert>
 #include <array>
-#include <cstdint>
 #include <random>
 
-
-
-
 namespace ENC{
-  std::random_device rd;
-  std::mt19937 mt(rd());
-  std::uniform_int_distribution<unsigned short> dist_char(0, 255);
-  std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
-  std::uniform_int_distribution<unsigned long long int> dist_short(0, std::numeric_limits<unsigned short>::max());
-  std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
+  static std::random_device rd;
+  static std::mt19937 mt(rd());
+  static std::uniform_int_distribution<unsigned short> dist_char(0, 255);
+  static std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
+  static std::uniform_int_distribution<unsigned long long int> dist_short(0, std::numeric_limits<unsigned short>::max());
+  static std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
   
   static const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
 					'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
@@ -34,9 +30,9 @@ namespace ENC{
       tofind+6;     // .-9
   }
 
-  std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len) { // Credit to René Nyffenegger, optimized myself
+  static std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len){ // Credit to René Nyffenegger, optimized myself
     std::string ret;
-    int i = 0, j=0;
+    unsigned char i=0, j=0;
     unsigned char char_array_3[7]; // Apparently this removes one syscall at the cost of using a little more ram
     unsigned char *char_array_4 = char_array_3+3; // "Way" faster - SA
 
@@ -68,7 +64,7 @@ namespace ENC{
     return ret;
   }
 
-  std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger, optimized myself
+  static std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger, optimized myself
     std::string ret;
     int in_len = encoded_string.size(), i = 0, j = 0, in_ = 0;
     unsigned char char_array_3[7]; // See above
@@ -103,7 +99,7 @@ namespace ENC{
   }
 
   namespace RSA{
-    std::string packKey(std::pair<mpz_class,mpz_class> key){
+    static std::string packKey(std::pair<mpz_class,mpz_class> key){
       size_t padding = mpz_sizeinbase(key.first.get_mpz_t(), 2); // bits
       padding = padding/8+(padding%8>0?1:0);
       unsigned char *str = (unsigned char*)malloc(padding);
@@ -121,7 +117,7 @@ namespace ENC{
       return first+'_'+second;
     };
 
-    std::pair<mpz_class,mpz_class> *unpackKey(std::string key){
+    static std::pair<mpz_class,mpz_class> *unpackKey(std::string key){
       std::string first = key.substr(0, key.find('_'));
       key.erase(0, first.length()+1);
       first = base64_decode(first);
@@ -135,7 +131,7 @@ namespace ENC{
       return new std::pair<mpz_class,mpz_class>(_first,_second);
     }
   
-    std::string encrypt(std::string input, std::pair<mpz_class,mpz_class> *key){
+    static std::string encrypt(std::string input, std::pair<mpz_class,mpz_class> *key){
       size_t padding = mpz_sizeinbase(key->first.get_mpz_t(), 2)/8-1; // pad message
       mpz_class ret;
       if(input.length()>=padding)
@@ -203,12 +199,12 @@ namespace ENC{
       
       mpz_class randPrime(unsigned int bits){
 	mpz_class ran;
-	do
-	  ran = r.get_z_bits(bits);
+	do ran = r.get_z_bits(bits);
 	while(!mpz_probab_prime_p(ran.get_mpz_t(), 100)); // muler-rabbin
 	return ran;
       }
-      mpz_class modInv(mpz_class a, mpz_class m){
+      
+      static inline mpz_class modInv(mpz_class a, mpz_class m){
 	if (m == 1) 
 	  return 0;
 	mpz_class m0 = m, y = 0, x = 1, q, t;
@@ -227,7 +223,7 @@ namespace ENC{
 	return x; 
       }
   
-      mpz_class unzip(std::string input){
+      static mpz_class unzip(std::string input){
 	std::string dec = base64_decode(input);
 	mpz_class ret;
 	mpz_import(ret.get_mpz_t(), dec.length(), 1, 1, 1, 0, dec.c_str());
@@ -243,7 +239,7 @@ namespace ENC{
   }
 
   namespace AES{
-    unsigned char (&rotate(unsigned char (&word)[4]))[4]{
+    static unsigned char (&rotate(unsigned char (&word)[4]))[4]{
       unsigned char tmp = word[0];
       word[0] = word[1];
       word[1] = word[2];
@@ -253,7 +249,7 @@ namespace ENC{
     }
   
     /* Calculate the rcon used in key expansion */
-    unsigned char rcon(unsigned char in) {
+    static unsigned char rcon(unsigned char in) {
       if(in == 0)  
 	return 0; 
       unsigned char c=1;
@@ -263,7 +259,7 @@ namespace ENC{
       return c;
     }
 
-    unsigned char stable[256] = {99, 124, 119, 123, 242, 107, 111, 197, 48, 1, 103, 43, 254, 215, 171, 118, 
+    static unsigned char stable[256] = {99, 124, 119, 123, 242, 107, 111, 197, 48, 1, 103, 43, 254, 215, 171, 118, 
 				 202, 130, 201, 125, 250, 89, 71, 240, 173, 212, 162, 175, 156, 164, 114, 192, 
 				 183, 253, 147, 38, 54, 63, 247, 204, 52, 165, 229, 241, 113, 216, 49, 21, 
 				 4, 199, 35, 195, 24, 150, 5, 154, 7, 18, 128, 226, 235, 39, 178, 117, 
@@ -280,7 +276,7 @@ namespace ENC{
 				 225, 248, 152, 17, 105, 217, 142, 148, 155, 30, 135, 233, 206, 85, 40, 223, 
 				 140, 161, 137, 13, 191, 230, 66, 104, 65, 153, 45, 15, 176, 84, 187, 22};
 
-    unsigned char stable_inv[256] = {82, 9, 106, 213, 48, 54, 165, 56, 191, 64, 163, 158, 129, 243, 215, 251, 
+    static unsigned char stable_inv[256] = {82, 9, 106, 213, 48, 54, 165, 56, 191, 64, 163, 158, 129, 243, 215, 251, 
 				     124, 227, 57, 130, 155, 47, 255, 135, 52, 142, 67, 68, 196, 222, 233, 203, 
 				     84, 123, 148, 50, 166, 194, 35, 61, 238, 76, 149, 11, 66, 250, 195, 78, 
 				     8, 46, 161, 102, 40, 217, 36, 178, 118, 91, 162, 73, 109, 139, 209, 37, 
@@ -305,7 +301,7 @@ namespace ENC{
       return stable_inv[in];
     }
 
-    unsigned char (&schedule_core(unsigned char (&in)[4], unsigned char i))[4]{
+    static unsigned char (&schedule_core(unsigned char (&in)[4], unsigned char i))[4]{
       unsigned char a;
       rotate(in);
       for(a = 0; a < 4; a++) 
@@ -314,14 +310,14 @@ namespace ENC{
       return in;
     }
 
-    unsigned char (&addRoundKey(unsigned char (&in)[4][4], std::array<unsigned char, 16> key))[4][4]{
+    static unsigned char (&addRoundKey(unsigned char (&in)[4][4], std::array<unsigned char, 16> key))[4][4]{
       for(unsigned char i=0; i<4; ++i)
 	for(unsigned char j=0; j<4; ++j)
 	  in[i][j]^=key[4*i+j];
       return in;
     }
 
-    unsigned char (&shiftrows(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
+    static unsigned char (&shiftrows(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
       unsigned char tmp = rows[1][0];
       rows[1][0] = rows[1][1];
       rows[1][1] = rows[1][2];
@@ -343,7 +339,7 @@ namespace ENC{
 
       return rows;
     }
-    unsigned char (&unshiftrows(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
+    static unsigned char (&unshiftrows(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
       unsigned char tmp = rows[1][0];
       rows[1][0] = rows[1][3];
       rows[1][3] = rows[1][2];
@@ -367,21 +363,21 @@ namespace ENC{
     }
 
   
-    unsigned char (&subBytes_encrypt(unsigned char (&rows)[4][4]))[4][4]{
+    static unsigned char (&subBytes_encrypt(unsigned char (&rows)[4][4]))[4][4]{
       for(auto &row: rows)
 	for(auto &elem: row)
 	  elem = sbox(elem);
       return rows;
     }
   
-    unsigned char (&subBytes_decrypt(unsigned char (&rows)[4][4]))[4][4]{
+    static unsigned char (&subBytes_decrypt(unsigned char (&rows)[4][4]))[4][4]{
       for(auto &row: rows)
 	for(auto &elem: row)
 	  elem = sbox_inv(elem);
       return rows;
     }
 
-    unsigned char ltable[256] = {
+    static unsigned char ltable[256] = {
 				 0x00, 0xff, 0xc8, 0x08, 0x91, 0x10, 0xd0, 0x36, 
 				 0x5a, 0x3e, 0xd8, 0x43, 0x99, 0x77, 0xfe, 0x18, 
 				 0x23, 0x20, 0x07, 0x70, 0xa1, 0x6c, 0x0c, 0x7f, 
@@ -415,7 +411,7 @@ namespace ENC{
 				 0x3b, 0x52, 0x6f, 0xf6, 0x2e, 0x89, 0xf7, 0xc0, 
 				 0x68, 0x1b, 0x64, 0x04, 0x06, 0xbf, 0x83, 0x38 };
 
-    unsigned char atable[256] = {
+    static unsigned char atable[256] = {
 				 0x01, 0xe5, 0x4c, 0xb5, 0xfb, 0x9f, 0xfc, 0x12, 
 				 0x03, 0x34, 0xd4, 0xc4, 0x16, 0xba, 0x1f, 0x36, 
 				 0x05, 0x5c, 0x67, 0x57, 0x3a, 0xd5, 0x21, 0x5a, 
@@ -449,15 +445,11 @@ namespace ENC{
 				 0x66, 0xb2, 0x76, 0x60, 0xda, 0xc5, 0xf3, 0xf6, 
 				 0xaa, 0xcd, 0x9a, 0xa0, 0x75, 0x54, 0x0e, 0x01 };
 
-    unsigned char gmul(unsigned char a, unsigned char b) {
-      unsigned char s = atable[(ltable[a] + ltable[b])%255], q = s, z = 0;
-      if(a==0)
-	s=z;
-      (b==0?s:q)=z;
-      return s;
+    static inline unsigned char gmul(unsigned char a, unsigned char b) {
+      return (!a||!b)?0:atable[(ltable[a] + ltable[b])%255];
     }
 
-    unsigned char (&mixColumn(unsigned char (&r)[4]))[4] {
+    static unsigned char (&mixColumn(unsigned char (&r)[4]))[4] {
       unsigned char a[4], b[4], c;
       for (c=0; c<4; c++)
 	(b[c] = (a[c]=r[c]) << 1) ^= 0x1B & (unsigned char)((signed char)r[c] >> 7);
@@ -468,7 +460,7 @@ namespace ENC{
       return r;
     }
 
-    unsigned char (&unmixColumn(unsigned char (&r)[4]))[4] { // this one can't be optimised like mixColumn because the numbers are much larger
+    static unsigned char (&unmixColumn(unsigned char (&r)[4]))[4] { // this one can't be optimised like mixColumn because the numbers are much larger
       unsigned char a[4];
       memcpy(a, r , 4);
       r[0] = gmul(14,a[0])^gmul(11,a[1])^gmul(13,a[2])^gmul(9,a[3]);
@@ -478,7 +470,7 @@ namespace ENC{
       return r;
     }
 
-    unsigned char (&mixColumns(unsigned char (&in)[4][4]))[4][4] {
+    static unsigned char (&mixColumns(unsigned char (&in)[4][4]))[4][4] {
       mixColumn(in[0]);
       mixColumn(in[1]);
       mixColumn(in[2]);
@@ -486,7 +478,7 @@ namespace ENC{
       return in;
     }
 
-    unsigned char (&unmixColumns(unsigned char (&in)[4][4]))[4][4] {
+    static unsigned char (&unmixColumns(unsigned char (&in)[4][4]))[4][4] {
       unmixColumn(in[0]);
       unmixColumn(in[1]);
       unmixColumn(in[2]);
@@ -494,8 +486,8 @@ namespace ENC{
       return in;
     }
 
-    std::vector<unsigned char> expand_key(std::vector<unsigned char> in){ // N bit key
-      unsigned long long int base_size = in.size(), size_e = base_size*4+112, c = base_size;
+    static std::vector<unsigned char> expand_key(std::vector<unsigned char> in){ // N bit key
+      size_t base_size = in.size(), size_e = base_size*4+112, c = base_size;
       std::vector<unsigned char> out;
       out.resize(base_size*4+115);
       memcpy(out.data(), in.data(), base_size);
@@ -518,7 +510,7 @@ namespace ENC{
 	  out[c] = out[c-base_size]^t[a];
 
       }
-      return out;
+      return out; 
     }
   
     struct AESkey{
@@ -564,7 +556,7 @@ namespace ENC{
       }
       inline void setStart(){
 	idx=0;
-	mode = true;
+	mode=true;
       }
       inline void setEnd(){
 	idx=log2(base)*2+2;
@@ -572,7 +564,7 @@ namespace ENC{
       }
     };
 
-    unsigned char (&small_encrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
+    static unsigned char (&small_encrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
       unsigned int N = expanded_key.base;
       expanded_key.setStart();
       addRoundKey(in, expanded_key.getRoundKey(true));
@@ -587,7 +579,7 @@ namespace ENC{
       addRoundKey(in, expanded_key.getRoundKey(false));
       return in;
     }
-    unsigned char (&small_decrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
+    static unsigned char (&small_decrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
       unsigned int N = expanded_key.base;
       expanded_key.setEnd();
     
@@ -605,7 +597,7 @@ namespace ENC{
       return in;
     }
 
-    std::string big_encrypt(std::string input, AESkey expanded_key){ // returns as base64
+    static std::string big_encrypt(std::string input, AESkey expanded_key){ // returns as base64
       int size_s = input.length(); // size before padding
       if(size_s==0)
 	return "";
@@ -630,7 +622,7 @@ namespace ENC{
       return base64_encode((const unsigned char*)ret.c_str(), size_p);
     }
 
-    std::string big_decrypt(std::string input, AESkey expanded_key){ // returns as string
+    static std::string big_decrypt(std::string input, AESkey expanded_key){ // returns as string
       input = base64_decode(input);
       int size_s = input.length(); // to strip off after the null we put in
       
@@ -655,7 +647,7 @@ namespace ENC{
   class EncryptionManager{
   private:
     gmp_randclass rr;
-    RSA::RSAmanager* rsaCore;
+    RSA::RSAmanager* rsaCore; // I use pointers for a tighter control of lifetime
     std::pair<mpz_class,mpz_class> *unpacked_key;
     AES::AESkey* AES_key;
     
@@ -901,13 +893,4 @@ namespace ENC{
     }
     return f==0;
   }
-}
-
-using namespace ENC;
-using namespace std;
-
-int main(){
-
-  EncryptionManagerTest(50);
-  return 0;
 }
