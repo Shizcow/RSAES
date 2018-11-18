@@ -23,11 +23,11 @@ namespace ENC{
 
   static inline char find(char tofind){
     return
-      (tofind>=97)? // a-z
-      tofind-71:
-      (tofind>=65)? // A-Z
-      tofind-65:
-      tofind+6;     // .-9
+			static_cast<char>((tofind >= 97) ? // a-z
+				  tofind-71 :
+				  (tofind>=65)? // A-Z
+				  tofind-65:
+				  tofind+6);     // .-9
   }
 
   static std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len){ // Credit to René Nyffenegger, optimized myself
@@ -39,10 +39,10 @@ namespace ENC{
     while (in_len--) {
       char_array_3[i++] = *(bytes_to_encode++);
       if (i == 3) {
-	char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
-	char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-	char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
-	char_array_4[3] = char_array_3[2] & 0x3f;
+	char_array_4[0] = static_cast<unsigned char>((char_array_3[0] & 0xfc) >> 2);
+	char_array_4[1] = static_cast<unsigned char>(((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4));
+	char_array_4[2] = static_cast<unsigned char>(((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6));
+	char_array_4[3] = static_cast<unsigned char>(char_array_3[2] & 0x3f);
 
 	for(i = 0; (i <4) ; i++)
 	  ret += base64_chars[char_array_4[i]];
@@ -54,9 +54,9 @@ namespace ENC{
       for(j = i; j < 3; j++)
 	char_array_3[j] = 0;
 
-      char_array_4[0] = ( char_array_3[0] & 0xfc) >> 2;
-      char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
-      char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
+      char_array_4[0] = static_cast<unsigned char>((char_array_3[0] & 0xfc) >> 2);
+      char_array_4[1] = static_cast<unsigned char>(((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4));
+      char_array_4[2] = static_cast<unsigned char>(((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6));
 
       for (j = 0; (j < i + 1); j++)
 	ret += base64_chars[char_array_4[j]];
@@ -66,19 +66,19 @@ namespace ENC{
 
   static std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger, optimized myself
     std::string ret;
-    int in_len = encoded_string.size(), i = 0, j = 0, in_ = 0;
+    unsigned long in_len = encoded_string.size(), i = 0, j = 0, in_ = 0;
     unsigned char char_array_3[7]; // See above
     unsigned char *char_array_4 = char_array_3+3;
 
     while (in_len--){
-      char_array_4[i++] = encoded_string[in_]; in_++;
+      char_array_4[i++] = (unsigned char) encoded_string[in_];in_++;
       if (i == 4){
 	for (i = 0; i < 4; i++)
-	  char_array_4[i] = find(char_array_4[i]);
+	  char_array_4[i] = static_cast<unsigned char>(find(char_array_4[i]));
 	
-	char_array_3[0] = ( char_array_4[0] << 2       ) + ((char_array_4[1] & 0x30) >> 4);
-	char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-	char_array_3[2] = ((char_array_4[2] & 0x3) << 6) +   char_array_4[3];
+	char_array_3[0] = static_cast<unsigned char>(( char_array_4[0] << 2       ) + ((char_array_4[1] & 0x30) >> 4));
+	char_array_3[1] = static_cast<unsigned char>(((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2));
+	char_array_3[2] = static_cast<unsigned char>(((char_array_4[2] & 0x3) << 6) + char_array_4[3]);
 	
 	for (i = 0; (i < 3); i++)
 	  ret += char_array_3[i];
@@ -88,10 +88,10 @@ namespace ENC{
     
     if (i){
       for (j = 0; j < i; j++)
-	char_array_4[j] = find(char_array_4[j]);
+	char_array_4[j] = static_cast<unsigned char>(find(char_array_4[j]));
       
-      char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-      char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
+      char_array_3[0] = static_cast<unsigned char>((char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4));
+      char_array_3[1] = static_cast<unsigned char>(((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2));
  
       for (j = 0; (j < i - 1); j++) ret += char_array_3[j];
     }
@@ -446,7 +446,7 @@ namespace ENC{
 				 0xaa, 0xcd, 0x9a, 0xa0, 0x75, 0x54, 0x0e, 0x01 };
 
     static inline unsigned char gmul(unsigned char a, unsigned char b) {
-      return (!a||!b)?0:atable[(ltable[a] + ltable[b])%255];
+      return static_cast<unsigned char>((!a || !b) ? 0 : atable[(ltable[a] + ltable[b]) % 255]);
     }
 
     static unsigned char (&mixColumn(unsigned char (&r)[4]))[4] {
@@ -512,20 +512,18 @@ namespace ENC{
       }
       return out; 
     }
-  
+
     struct AESkey{
       std::vector<unsigned char> expanded_key;
       unsigned int idx;
       bool mode; // true = forward, false = backward
-      size_t base, size_e;
+      size_t base;
       AESkey(std::vector<unsigned char> in) : idx(0), mode(true){
 	base = in.size();
-	size_e = base*4+112;
 	expanded_key = expand_key(in);
       }
       AESkey(size_t _base) : idx(0), mode(true){
 	base = _base/16; // bits to bytes
-	size_e = base*4+112;
 	if(base%2)
 	  throw std::invalid_argument("bits size is invalid"); //base size should be a multiple of 2
 	std::vector<unsigned char> vec;
@@ -540,10 +538,10 @@ namespace ENC{
 	unsigned short *ptr = (unsigned short *)expanded_key.data();
 	size_t size = expanded_key.size()/2;
 	for(size_t i=0; i<size; ++i, ++ptr)
-	  *ptr = dist_short(mt);
+	  *ptr = static_cast<unsigned short>(dist_short(mt));
 	idx = 0;
 	mode = true;
-	base = size_e = 0;
+	base = 0;
       }
       std::array<unsigned char, 16> getRoundKey(bool B = false){
 	std::array<unsigned char, 16> ret;
@@ -559,13 +557,13 @@ namespace ENC{
 	mode=true;
       }
       inline void setEnd(){
-	idx=log2(base)*2+2;
+	idx=static_cast<unsigned int>(log2(base)*2)+2;
 	mode=false;
       }
     };
 
     static unsigned char (&small_encrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
-      unsigned int N = expanded_key.base;
+      size_t N = expanded_key.base;
       expanded_key.setStart();
       addRoundKey(in, expanded_key.getRoundKey(true));
       for(int i=0; i<log2(N)*2+1; ++i){
@@ -580,7 +578,7 @@ namespace ENC{
       return in;
     }
     static unsigned char (&small_decrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
-      unsigned int N = expanded_key.base;
+      size_t N = expanded_key.base;
       expanded_key.setEnd();
     
       addRoundKey(in, expanded_key.getRoundKey(true));
@@ -598,19 +596,19 @@ namespace ENC{
     }
 
     static std::string big_encrypt(std::string input, AESkey expanded_key){ // returns as base64
-      int size_s = input.length(); // size before padding
+      size_t size_s = input.length(); // size before padding
       if(size_s==0)
 	return "";
-      int size_p = size_s % 16; // size after padding
+      size_t size_p = size_s % 16; // size after padding
       size_p = size_p==0?size_s:size_s+16-size_p;
       if(size_s!=size_p){ // it needs padding
-	input+='\0';
-	for(int i=0; i<(size_p-size_s-1); ++i)
+	input+=static_cast<char>('\0');
+	for(size_t i=0; i<(size_p-size_s-1); ++i)
 	  input+=(char)dist_char(mt);
       }
       std::string ret;
       const char * c = input.c_str();
-      for(int i=0; i<size_p; i+=16){
+      for(size_t i=0; i<size_p; i+=16){
 	unsigned char arr[4][4];
 	memcpy(arr, c+i, 16);
 	small_encrypt(arr, expanded_key);
@@ -624,11 +622,11 @@ namespace ENC{
 
     static std::string big_decrypt(std::string input, AESkey expanded_key){ // returns as string
       input = base64_decode(input);
-      int size_s = input.length(); // to strip off after the null we put in
+      size_t size_s = input.length(); // to strip off after the null we put in
       
       std::string ret;
       const char * c = input.c_str();
-      for(int i=0; i<size_s; i+=16){
+      for(size_t i=0; i<size_s; i+=16){
 	unsigned char arr[4][4];
 	memcpy(arr, c+i, 16);
 	small_decrypt(arr, expanded_key);
