@@ -117,22 +117,21 @@ namespace ENC{
       return first+'_'+second;
     };
 
-    static std::pair<mpz_class,mpz_class> *unpackKey(std::string key){
+    static void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string key){
       std::string first = key.substr(0, key.find('_'));
       key.erase(0, first.length()+1);
       first = base64_decode(first);
       std::string second = base64_decode(key);
-    
-      mpz_class _first;
-      mpz_import(_first.get_mpz_t(), first.length(), 1, 1, 1, 0, first.c_str());
-      mpz_class _second;
-      mpz_import(_second.get_mpz_t(), second.length(), 1, 1, 1, 0, second.c_str());
-    
-      return new std::pair<mpz_class,mpz_class>(_first,_second);
+
+      *rop = new std::pair<mpz_t,mpz_t>;
+      mpz_init((*rop)->first);
+      mpz_import((*rop)->first, first.length(), 1, 1, 1, 0, first.c_str());
+      mpz_init((*rop)->second);
+      mpz_import((*rop)->second, second.length(), 1, 1, 1, 0, second.c_str());
     }
   
-    static std::string encrypt(std::string input, std::pair<mpz_class,mpz_class> *key){
-      size_t padding = mpz_sizeinbase(key->first.get_mpz_t(), 2)/8-1; // pad message
+    static std::string encrypt(std::string input, std::pair<mpz_t,mpz_t> *key){
+      size_t padding = mpz_sizeinbase(key->first, 2)/8-1; // pad message
       mpz_class ret;
       if(input.length()>=padding)
 	throw std::invalid_argument("message too large!");
@@ -140,10 +139,10 @@ namespace ENC{
       for(size_t i=0; i<padding-input.length()-1; ++i)
 	rands+=dist_char(mt);
 
-      padding = mpz_sizeinbase(key->first.get_mpz_t(), 2)/8-1;
+      padding = mpz_sizeinbase(key->first, 2)/8-1;
       mpz_import(ret.get_mpz_t(), padding, 1, 1, 1, 0, (input+'\0'+rands).c_str()); // convert to num
     
-      mpz_powm(ret.get_mpz_t(), ret.get_mpz_t(), key->second.get_mpz_t(), key->first.get_mpz_t()); // encrypt
+      mpz_powm(ret.get_mpz_t(), ret.get_mpz_t(), key->second, key->first); // encrypt
 
       padding = mpz_sizeinbase(ret.get_mpz_t(), 2); // convert to base 64
       unsigned char *str = (unsigned char*)malloc(padding);
@@ -669,7 +668,7 @@ namespace ENC{
   private:
     gmp_randstate_t r;
     RSA::RSAmanager* rsaCore; // I use pointers for a tighter control of lifetime
-    std::pair<mpz_class,mpz_class> *unpacked_key;
+    std::pair<mpz_t,mpz_t> *unpacked_key;
     AES::AESkey* AES_key;
     
   public:
@@ -681,32 +680,36 @@ namespace ENC{
     EncryptionManager(std::string key): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're recieving the public key and generating a pass for AES
       gmp_randinit_default(r);
       gmp_randseed_ui(r, dist_r(mt));
-      unpacked_key = RSA::unpackKey(key);
+      RSA::unpackKey(&unpacked_key, key);
 
-      size_t AESbits = pow(2,(size_t)log2(mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 2))+1);
+      size_t AESbits = pow(2,(size_t)log2(mpz_sizeinbase(unpacked_key->first, 2))+1);
       //generate random pass
       AES_key = new AES::AESkey(AESbits);
     }
     EncryptionManager(std::string key, size_t AESbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // specify AES size
       gmp_randinit_default(r);
       gmp_randseed_ui(r, dist_r(mt));
-      unpacked_key = RSA::unpackKey(key);
+      RSA::unpackKey(&unpacked_key, key);
       AES_key = new AES::AESkey(AESbits);
     }
 
     ~EncryptionManager(){
-      if(rsaCore!=nullptr)
+      if(rsaCore!=nullptr){
 	delete rsaCore;
-      if(unpacked_key!=nullptr){
-	mpz_urandomb(unpacked_key->first.get_mpz_t(), r, mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 256)*8); // clear ram just in case
-	mpz_urandomb(unpacked_key->second.get_mpz_t(), r, mpz_sizeinbase(unpacked_key->second.get_mpz_t(), 256)*8);
-	delete unpacked_key;
+	rsaCore=nullptr;
       }
-      if(AES_key!=nullptr)
+      if(unpacked_key!=nullptr){
+	mpz_urandomb(unpacked_key->first, r, mpz_sizeinbase(unpacked_key->first, 256)*8); // scramble ram just in case
+	mpz_urandomb(unpacked_key->second, r, mpz_sizeinbase(unpacked_key->second, 256)*8);
+	mpz_clear(unpacked_key->first);
+	mpz_clear(unpacked_key->second);
+	delete unpacked_key;
+	unpacked_key=nullptr;
+      }
+      if(AES_key!=nullptr){
 	delete AES_key;
-      rsaCore=nullptr;
-      unpacked_key=nullptr;
-      AES_key=nullptr;
+	AES_key=nullptr;
+      }
       gmp_randclear(r);
     }
 
@@ -726,8 +729,10 @@ namespace ENC{
       std::string AES_string(exp.begin(), exp.end());
       
       std::string ret = RSA::encrypt(AES_string, unpacked_key);
-      mpz_urandomb(unpacked_key->first.get_mpz_t(), r, mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 256)*8); // clear ram just in case
-      mpz_urandomb(unpacked_key->second.get_mpz_t(), r, mpz_sizeinbase(unpacked_key->second.get_mpz_t(), 256)*8);
+      mpz_urandomb(unpacked_key->first, r, mpz_sizeinbase(unpacked_key->first, 256)*8); // scramble ram just in case
+      mpz_urandomb(unpacked_key->second, r, mpz_sizeinbase(unpacked_key->second, 256)*8);
+      mpz_clear(unpacked_key->first);
+      mpz_clear(unpacked_key->second);
       delete unpacked_key; // might as well get rid of this
       unpacked_key = nullptr;
       return ret;
