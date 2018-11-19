@@ -183,23 +183,25 @@ namespace ENC{
 
 	mpz_init(public_key.first);
 	mpz_init(public_key.second); // TODO: are these needed? SOmehting about init+set
+	mpz_init(private_key);
 	mpz_set(public_key.first, n.get_mpz_t());
 	mpz_set(public_key.second, e.get_mpz_t());
-	modInv(private_key.get_mpz_t(), e.get_mpz_t(), T.get_mpz_t());
+	modInv(private_key, e.get_mpz_t(), T.get_mpz_t());
       }
       ~RSAmanager(){ // clear ram just in case
 	mpz_urandomb(public_key.first, r, mpz_sizeinbase(public_key.first, 256)*8); // round up to byte
 	mpz_urandomb(public_key.second, r, mpz_sizeinbase(public_key.second, 256)*8);
 	mpz_clear(public_key.first);
 	mpz_clear(public_key.second);
-	mpz_urandomb(private_key.get_mpz_t(), r, mpz_sizeinbase(private_key.get_mpz_t(), 256)*8);
+	mpz_urandomb(private_key, r, mpz_sizeinbase(private_key, 256)*8);
+	mpz_clear(private_key);
 	gmp_randseed_ui(r, 0);
 	gmp_randclear(r); // don't want the seed leaked
       }
       
     private:
       gmp_randstate_t r;
-      mpz_class private_key;
+      mpz_t private_key;
 
       std::string fromInt(mpz_t input){
 	char *str = (char*)malloc(1+((mpz_sizeinbase(input, 2)-1)/8));
@@ -261,7 +263,7 @@ namespace ENC{
       }
 
       inline void decode(mpz_t rop){
-	mpz_powm(rop, rop, private_key.get_mpz_t(), public_key.first);
+	mpz_powm(rop, rop, private_key, public_key.first);
       }
     };
   }
