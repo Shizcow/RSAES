@@ -170,23 +170,28 @@ namespace ENC{
       RSAmanager(unsigned int bits){
 	gmp_randinit_default(r);
 	gmp_randseed_ui(r, dist_r(mt));
-	mpz_class p = randPrime(bits), 
-	  q = randPrime(bits),
-	  n = p*q,
-	  T = (p-1)*(q-1),
-	  ran, gcd, e;
+	mpz_t p, q, n, T, ran, gcd, e;
+	mpz_inits(p, q, n, T, ran, gcd, e, NULL);
+	randPrime(p, bits);
+	randPrime(q, bits);
+	mpz_mul(n, p, q);
+	//n=p*q;
+	mpz_sub_ui(p, p, 1);
+	mpz_sub_ui(q, q, 1);
+	mpz_mul(T, p, q);
+	//T = (p-1)*(q-1);
 	do{
-	  mpz_urandomb(e.get_mpz_t(), r, 16);
-	  e += USHRT_MAX; // Slightly more secure but terrible performance. Doesn't really matter though because we only do this once
-	  mpz_gcd(gcd.get_mpz_t(), T.get_mpz_t(), e.get_mpz_t()); // check if coprime
-	} while(gcd!=1);
+	  mpz_urandomb(e, r, 16);
+	  mpz_add_ui(e, e, USHRT_MAX); // Slightly more secure but terrible performance. Doesn't really matter though because we only do this once
+	  mpz_gcd(gcd, T, e); // check if coprime
+	} while(mpz_cmp_ui(gcd,1)); // gcd!=1
 
 	mpz_init(public_key.first);
 	mpz_init(public_key.second); // TODO: are these needed? SOmehting about init+set
 	mpz_init(private_key);
-	mpz_set(public_key.first, n.get_mpz_t());
-	mpz_set(public_key.second, e.get_mpz_t());
-	modInv(private_key, e.get_mpz_t(), T.get_mpz_t());
+	mpz_set(public_key.first, n);
+	mpz_set(public_key.second, e);
+	modInv(private_key, e, T);
       }
       ~RSAmanager(){ // clear ram just in case
 	mpz_urandomb(public_key.first, r, mpz_sizeinbase(public_key.first, 256)*8); // round up to byte
@@ -211,11 +216,9 @@ namespace ENC{
 	return ret;
       }
       
-      mpz_class randPrime(unsigned int bits){
-	mpz_class ran;
-	do mpz_urandomb(ran.get_mpz_t(), r, bits);
-	while(!mpz_probab_prime_p(ran.get_mpz_t(), 100)); // muler-rabbin
-	return ran;
+      inline void randPrime(mpz_t rop, unsigned int bits){
+	do mpz_urandomb(rop, r, bits);
+	while(!mpz_probab_prime_p(rop, 100)); // muler-rabbin
       }
       
       static inline void modInv(mpz_t rop, mpz_t a, mpz_t m){
