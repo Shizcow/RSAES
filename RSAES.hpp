@@ -159,7 +159,13 @@ namespace ENC{
       std::pair<mpz_class,mpz_class> public_key;
       
       inline std::string decrypt(std::string msg){
-	return fromInt(decode(unzip(msg)));
+	mpz_t tmp;
+	mpz_init(tmp);
+	unzip(tmp, msg);
+	decode(tmp);
+	std::string ret = fromInt(tmp);
+	mpz_clear(tmp);
+	return ret;
       }
 
       RSAmanager(unsigned int bits){
@@ -192,9 +198,9 @@ namespace ENC{
       gmp_randstate_t r;
       mpz_class private_key;
 
-      std::string fromInt(mpz_class input){
-	char *str = (char*)malloc(1+((mpz_sizeinbase(input.get_mpz_t(), 2)-1)/8));
-	mpz_export(str, nullptr, 1, 1, 1, 0, input.get_mpz_t());
+      std::string fromInt(mpz_t input){
+	char *str = (char*)malloc(1+((mpz_sizeinbase(input, 2)-1)/8));
+	mpz_export(str, nullptr, 1, 1, 1, 0, input);
 	std::string ret(str);
 	free(str);
 	return ret;
@@ -217,7 +223,7 @@ namespace ENC{
 	mpz_init(t);
 	mpz_set(m0, m);
 	mpz_set_ui(rop, 1);
-	//mpz_set_ui(y, 0); // it's implied
+	//mpz_set_ui(y, 0); // it's implied during init
 	
 	while (mpz_cmp_ui(a, 1) > 0){ // a>1
 	  mpz_tdiv_q(q, a, m);
@@ -240,19 +246,19 @@ namespace ENC{
 	if (mpz_sgn(rop) < 0) // x<0
 	  mpz_add(rop, rop, m0);
 	//rop += m0;
+	mpz_clear(m0);
+	mpz_clear(y);
+	mpz_clear(q);
+	mpz_clear(t);
       }
   
-      static mpz_class unzip(std::string input){
+      static inline void unzip(mpz_t rop, std::string input){
 	std::string dec = base64_decode(input);
-	mpz_class ret;
-	mpz_import(ret.get_mpz_t(), dec.length(), 1, 1, 1, 0, dec.c_str());
-	return ret;
+	mpz_import(rop, dec.length(), 1, 1, 1, 0, dec.c_str());
       }
 
-      mpz_class decode(mpz_class c){
-	mpz_class m;
-	mpz_powm(m.get_mpz_t(), c.get_mpz_t(), private_key.get_mpz_t(), public_key.first.get_mpz_t());
-	return m;
+      inline void decode(mpz_t rop){
+	mpz_powm(rop, rop, private_key.get_mpz_t(), public_key.first.get_mpz_t());
       }
     };
   }
@@ -701,6 +707,7 @@ namespace ENC{
       rsaCore=nullptr;
       unpacked_key=nullptr;
       AES_key=nullptr;
+      gmp_randclear(r);
     }
 
     std::string getPublicKey(){
