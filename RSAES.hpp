@@ -178,7 +178,7 @@ namespace ENC{
 
 	public_key.first = n;
 	public_key.second = e;
-	private_key = modInv(e, T);
+	modInv(private_key.get_mpz_t(), e.get_mpz_t(), T.get_mpz_t());
       }
       ~RSAmanager(){ // clear ram just in case
 	mpz_urandomb(public_key.first.get_mpz_t(), r, mpz_sizeinbase(public_key.first.get_mpz_t(), 256)*8); // round up to byte
@@ -207,23 +207,39 @@ namespace ENC{
 	return ran;
       }
       
-      static inline mpz_class modInv(mpz_class a, mpz_class m){
-	if (m == 1) 
-	  return 0;
-	mpz_class m0 = m, y = 0, x = 1, q, t;
-    
-	while (a > 1){ 
-	  q = a / m; 
-	  t = m; 
-	  m = a % m, a = t;
-	  t = y; 
-	  y = x - q * y; 
-	  x = t; 
+      static inline void modInv(mpz_t rop, mpz_t a, mpz_t m){
+	//if(!mpz_cmp_ui(m, 1)) // m==1 
+	//  return; // we can safely assume m!=1
+	mpz_t m0, y, q, t;
+	mpz_init(m0);
+	mpz_init(y);
+	mpz_init(q);
+	mpz_init(t);
+	mpz_set(m0, m);
+	mpz_set_ui(rop, 1);
+	//mpz_set_ui(y, 0); // it's implied
+	
+	while (mpz_cmp_ui(a, 1) > 0){ // a>1
+	  mpz_tdiv_q(q, a, m);
+	  //q = a / m;
+	  mpz_set(t, m);
+	  //t = m;
+	  mpz_tdiv_r(m, a, m);
+	  //m = a % m;
+	  mpz_set(a, t);
+	  //a = t;
+	  mpz_set(t, y);
+	  //t = y;
+	  mpz_mul(y, q, y);
+	  //y = q * y;
+	  mpz_sub(y, rop, y);
+	  //y = rop - y;
+	  mpz_set(rop, t);
+	  //x = t; 
 	} 
-	if (x < 0) 
-	  x += m0; 
-  
-	return x; 
+	if (mpz_sgn(rop) < 0) // x<0
+	  mpz_add(rop, rop, m0);
+	//rop += m0;
       }
   
       static mpz_class unzip(std::string input){
