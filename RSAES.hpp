@@ -99,18 +99,18 @@ namespace ENC{
   }
 
   namespace RSA{
-    static std::string packKey(std::pair<mpz_class,mpz_class> key){
-      size_t padding = mpz_sizeinbase(key.first.get_mpz_t(), 2); // bits
+    static std::string packKey(std::pair<mpz_t,mpz_t> key){
+      size_t padding = mpz_sizeinbase(key.first, 2); // bits
       padding = padding/8+(padding%8>0?1:0);
       unsigned char *str = (unsigned char*)malloc(padding);
-      mpz_export(str, nullptr, 1, 1, 1, 0, key.first.get_mpz_t());
+      mpz_export(str, nullptr, 1, 1, 1, 0, key.first);
       std::string first = base64_encode(str, padding);
       free(str);
     
-      padding = mpz_sizeinbase(key.second.get_mpz_t(), 2); // bits
+      padding = mpz_sizeinbase(key.second, 2); // bits
       padding = padding/8+(padding%8>0?1:0);
       str = (unsigned char*)malloc(padding);
-      mpz_export(str, nullptr, 1, 1, 1, 0, key.second.get_mpz_t());
+      mpz_export(str, nullptr, 1, 1, 1, 0, key.second);
       std::string second = base64_encode(str, padding);
       free(str);
     
@@ -132,7 +132,8 @@ namespace ENC{
   
     static std::string encrypt(std::string input, std::pair<mpz_t,mpz_t> *key){
       size_t padding = mpz_sizeinbase(key->first, 2)/8-1; // pad message
-      mpz_class ret;
+      mpz_t ret;
+      mpz_init(ret);
       if(input.length()>=padding)
 	throw std::invalid_argument("message too large!");
       std::string rands;
@@ -140,22 +141,21 @@ namespace ENC{
 	rands+=dist_char(mt);
 
       padding = mpz_sizeinbase(key->first, 2)/8-1;
-      mpz_import(ret.get_mpz_t(), padding, 1, 1, 1, 0, (input+'\0'+rands).c_str()); // convert to num
-    
-      mpz_powm(ret.get_mpz_t(), ret.get_mpz_t(), key->second, key->first); // encrypt
-
-      padding = mpz_sizeinbase(ret.get_mpz_t(), 2); // convert to base 64
+      mpz_import(ret, padding, 1, 1, 1, 0, (input+'\0'+rands).c_str()); // convert to num    
+      mpz_powm(ret, ret, key->second, key->first); // encrypt
+      padding = mpz_sizeinbase(ret, 2); // convert to base 64
       unsigned char *str = (unsigned char*)malloc(padding);
-      mpz_export(str, nullptr, 1, 1, 1, 0, ret.get_mpz_t());
+      mpz_export(str, nullptr, 1, 1, 1, 0, ret);
       std::string ret_str = base64_encode(str, padding/8+(padding%8>0?1:0));
       free(str);
+      mpz_clear(ret);
       return ret_str;
     }
 
   
     class RSAmanager{
     public:
-      std::pair<mpz_class,mpz_class> public_key;
+      std::pair<mpz_t,mpz_t> public_key;
       
       inline std::string decrypt(std::string msg){
 	mpz_t tmp;
@@ -181,13 +181,17 @@ namespace ENC{
 	  mpz_gcd(gcd.get_mpz_t(), T.get_mpz_t(), e.get_mpz_t()); // check if coprime
 	} while(gcd!=1);
 
-	public_key.first = n;
-	public_key.second = e;
+	mpz_init(public_key.first);
+	mpz_init(public_key.second); // TODO: are these needed? SOmehting about init+set
+	mpz_set(public_key.first, n.get_mpz_t());
+	mpz_set(public_key.second, e.get_mpz_t());
 	modInv(private_key.get_mpz_t(), e.get_mpz_t(), T.get_mpz_t());
       }
       ~RSAmanager(){ // clear ram just in case
-	mpz_urandomb(public_key.first.get_mpz_t(), r, mpz_sizeinbase(public_key.first.get_mpz_t(), 256)*8); // round up to byte
-	mpz_urandomb(public_key.second.get_mpz_t(), r, mpz_sizeinbase(public_key.second.get_mpz_t(), 256)*8);
+	mpz_urandomb(public_key.first, r, mpz_sizeinbase(public_key.first, 256)*8); // round up to byte
+	mpz_urandomb(public_key.second, r, mpz_sizeinbase(public_key.second, 256)*8);
+	mpz_clear(public_key.first);
+	mpz_clear(public_key.second);
 	mpz_urandomb(private_key.get_mpz_t(), r, mpz_sizeinbase(private_key.get_mpz_t(), 256)*8);
 	gmp_randseed_ui(r, 0);
 	gmp_randclear(r); // don't want the seed leaked
@@ -257,7 +261,7 @@ namespace ENC{
       }
 
       inline void decode(mpz_t rop){
-	mpz_powm(rop, rop, private_key.get_mpz_t(), public_key.first.get_mpz_t());
+	mpz_powm(rop, rop, private_key.get_mpz_t(), public_key.first);
       }
     };
   }

@@ -5,6 +5,7 @@ clean:
 	rm -f a.out
 	rm -f vgcore*
 	rm -f valgrind*
+	git add .
 
 run:	edit
 	./a.out
