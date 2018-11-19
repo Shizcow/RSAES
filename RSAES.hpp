@@ -1,13 +1,16 @@
-#include <gmpxx.h> // Haha I lost everything
-#include <limits>
-#include <iostream>
-#include <stdexcept>
-#include <random>
-#include <string>
-#include <vector>
-#include <cassert>
-#include <array>
-#include <random>
+#ifndef __RSAES__
+#define __RSAES__
+
+#include <gmp.h>     // for bignums. may remove soon
+#include <limits>    //     numerical limits
+#include <iostream>  //     showing results of tests
+#include <stdexcept> //     throwing errors in tests
+#include <string>    //     passing messages in std::string
+#include <vector>    //     big key storage
+#include <array>     //     round key passing
+#include <random>    //     crypto afterall
+#include <algorithm> //     copy_n (makes cloning vectors faster)
+#include <cstring>   //     memcpy
 
 namespace ENC{
   static std::random_device rd;
@@ -168,30 +171,29 @@ namespace ENC{
       }
 
       RSAmanager(unsigned int bits){
+	mpz_init(private_key);
+	mpz_init(public_key.first);
+	mpz_init(public_key.second);
 	gmp_randinit_default(r);
 	gmp_randseed_ui(r, dist_r(mt));
-	mpz_t p, q, n, T, ran, gcd, e;
-	mpz_inits(p, q, n, T, ran, gcd, e, NULL);
-	randPrime(p, bits);
+	randPrime(public_key.second, bits);
+	mpz_t q;
+	mpz_init(q);
 	randPrime(q, bits);
-	mpz_mul(n, p, q);
+	mpz_mul(public_key.first, public_key.second, q);
 	//n=p*q;
-	mpz_sub_ui(p, p, 1);
+	mpz_sub_ui(public_key.second, public_key.second, 1);
 	mpz_sub_ui(q, q, 1);
-	mpz_mul(T, p, q);
+	mpz_mul(q, public_key.second, q);
 	//T = (p-1)*(q-1);
 	do{
-	  mpz_urandomb(e, r, 16);
-	  mpz_add_ui(e, e, USHRT_MAX); // Slightly more secure but terrible performance. Doesn't really matter though because we only do this once
-	  mpz_gcd(gcd, T, e); // check if coprime
-	} while(mpz_cmp_ui(gcd,1)); // gcd!=1
+	  mpz_urandomb(public_key.second, r, 16);
+	  mpz_add_ui(public_key.second, public_key.second, USHRT_MAX); // Slightly more secure but terrible performance. Doesn't really matter though because we only do this once
+	  mpz_gcd(private_key, q, public_key.second); // check if coprime
+	} while(mpz_cmp_ui(private_key,1)); // gcd!=1
 
-	mpz_init(public_key.first);
-	mpz_init(public_key.second); // TODO: are these needed? SOmehting about init+set
-	mpz_init(private_key);
-	mpz_set(public_key.first, n);
-	mpz_set(public_key.second, e);
-	modInv(private_key, e, T);
+	modInv(private_key, public_key.second, q); // I feel like we could remove a var in modInv somehow
+	mpz_clear(q);
       }
       ~RSAmanager(){ // clear ram just in case
 	mpz_urandomb(public_key.first, r, mpz_sizeinbase(public_key.first, 256)*8); // round up to byte
@@ -221,10 +223,12 @@ namespace ENC{
 	while(!mpz_probab_prime_p(rop, 100)); // muler-rabbin
       }
       
-      static inline void modInv(mpz_t rop, mpz_t a, mpz_t m){
+      static inline void modInv(mpz_t rop, const mpz_t a0, mpz_t m){
 	//if(!mpz_cmp_ui(m, 1)) // m==1 
 	//  return; // we can safely assume m!=1
-	mpz_t m0, y, q, t;
+	mpz_t m0, y, q, t, a;
+	mpz_init(a);
+	mpz_set(a, a0);
 	mpz_init(m0);
 	mpz_init(y);
 	mpz_init(q);
@@ -253,7 +257,8 @@ namespace ENC{
 	} 
 	if (mpz_sgn(rop) < 0) // x<0
 	  mpz_add(rop, rop, m0);
-	//rop += m0;
+	  //rop += m0;
+	mpz_clear(a);
 	mpz_clear(m0);
 	mpz_clear(y);
 	mpz_clear(q);
@@ -933,3 +938,5 @@ namespace ENC{
     return f==0;
   }
 }
+
+#endif // __RSAES__
