@@ -162,15 +162,17 @@ namespace ENC{
 	return fromInt(decode(unzip(msg)));
       }
 
-      RSAmanager(unsigned int bits) : r(gmp_randinit_default){
-	r.seed(dist_r(mt));
+      RSAmanager(unsigned int bits){
+	gmp_randinit_default(r);
+	gmp_randseed_ui(r, dist_r(mt));
 	mpz_class p = randPrime(bits), 
 	  q = randPrime(bits),
 	  n = p*q,
 	  T = (p-1)*(q-1),
 	  ran, gcd, e;
 	do{
-	  e = r.get_z_range(USHRT_MAX)+USHRT_MAX; // Slightly more secure but terrible performance. Doesn't really matter though because we only do this once
+	  mpz_urandomb(e.get_mpz_t(), r, 16);
+	  e += USHRT_MAX; // Slightly more secure but terrible performance. Doesn't really matter though because we only do this once
 	  mpz_gcd(gcd.get_mpz_t(), T.get_mpz_t(), e.get_mpz_t()); // check if coprime
 	} while(gcd!=1);
 
@@ -179,14 +181,15 @@ namespace ENC{
 	private_key = modInv(e, T);
       }
       ~RSAmanager(){ // clear ram just in case
-	public_key.first = r.get_z_bits(mpz_sizeinbase(public_key.first.get_mpz_t(), 256)*8); // round up to byte
-	public_key.second = r.get_z_bits(mpz_sizeinbase(public_key.second.get_mpz_t(), 256)*8);
-	private_key = r.get_z_bits(mpz_sizeinbase(private_key.get_mpz_t(), 256)*8);
-	r.seed(0); // don't want the seed leaked
+	mpz_urandomb(public_key.first.get_mpz_t(), r, mpz_sizeinbase(public_key.first.get_mpz_t(), 256)*8); // round up to byte
+	mpz_urandomb(public_key.second.get_mpz_t(), r, mpz_sizeinbase(public_key.second.get_mpz_t(), 256)*8);
+	mpz_urandomb(private_key.get_mpz_t(), r, mpz_sizeinbase(private_key.get_mpz_t(), 256)*8);
+	gmp_randseed_ui(r, 0);
+	gmp_randclear(r); // don't want the seed leaked
       }
       
     private:
-      gmp_randclass r;
+      gmp_randstate_t r;
       mpz_class private_key;
 
       std::string fromInt(mpz_class input){
@@ -199,7 +202,7 @@ namespace ENC{
       
       mpz_class randPrime(unsigned int bits){
 	mpz_class ran;
-	do ran = r.get_z_bits(bits);
+	do mpz_urandomb(ran.get_mpz_t(), r, bits);
 	while(!mpz_probab_prime_p(ran.get_mpz_t(), 100)); // muler-rabbin
 	return ran;
       }
@@ -642,26 +645,29 @@ namespace ENC{
   
   class EncryptionManager{
   private:
-    gmp_randclass rr;
+    gmp_randstate_t r;
     RSA::RSAmanager* rsaCore; // I use pointers for a tighter control of lifetime
     std::pair<mpz_class,mpz_class> *unpacked_key;
     AES::AESkey* AES_key;
     
   public:
-    EncryptionManager(unsigned int RSAbits): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're sending out the public key
-      rr.seed(dist_r(mt));
+    EncryptionManager(unsigned int RSAbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're sending out the public key
+      gmp_randinit_default(r);
+      gmp_randseed_ui(r, dist_r(mt));
       rsaCore = new RSA::RSAmanager(RSAbits);
     }
-    EncryptionManager(std::string key): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're recieving the public key and generating a pass for AES
-      rr.seed(dist_r(mt));
+    EncryptionManager(std::string key): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're recieving the public key and generating a pass for AES
+      gmp_randinit_default(r);
+      gmp_randseed_ui(r, dist_r(mt));
       unpacked_key = RSA::unpackKey(key);
 
       size_t AESbits = pow(2,(size_t)log2(mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 2))+1);
       //generate random pass
       AES_key = new AES::AESkey(AESbits);
     }
-    EncryptionManager(std::string key, size_t AESbits): rr(gmp_randinit_default), rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // specify AES size
-      rr.seed(dist_r(mt));
+    EncryptionManager(std::string key, size_t AESbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // specify AES size
+      gmp_randinit_default(r);
+      gmp_randseed_ui(r, dist_r(mt));
       unpacked_key = RSA::unpackKey(key);
       AES_key = new AES::AESkey(AESbits);
     }
@@ -670,8 +676,8 @@ namespace ENC{
       if(rsaCore!=nullptr)
 	delete rsaCore;
       if(unpacked_key!=nullptr){
-	unpacked_key->first = rr.get_z_bits(mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 256)*8); // clear ram just in case
-	unpacked_key->second = rr.get_z_bits(mpz_sizeinbase(unpacked_key->second.get_mpz_t(), 256)*8);
+	mpz_urandomb(unpacked_key->first.get_mpz_t(), r, mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 256)*8); // clear ram just in case
+	mpz_urandomb(unpacked_key->second.get_mpz_t(), r, mpz_sizeinbase(unpacked_key->second.get_mpz_t(), 256)*8);
 	delete unpacked_key;
       }
       if(AES_key!=nullptr)
@@ -697,8 +703,8 @@ namespace ENC{
       std::string AES_string(exp.begin(), exp.end());
       
       std::string ret = RSA::encrypt(AES_string, unpacked_key);
-      unpacked_key->first = rr.get_z_bits(mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 256)*8); // clear ram just in case
-      unpacked_key->second = rr.get_z_bits(mpz_sizeinbase(unpacked_key->second.get_mpz_t(), 256)*8);
+      mpz_urandomb(unpacked_key->first.get_mpz_t(), r, mpz_sizeinbase(unpacked_key->first.get_mpz_t(), 256)*8); // clear ram just in case
+      mpz_urandomb(unpacked_key->second.get_mpz_t(), r, mpz_sizeinbase(unpacked_key->second.get_mpz_t(), 256)*8);
       delete unpacked_key; // might as well get rid of this
       unpacked_key = nullptr;
       return ret;
