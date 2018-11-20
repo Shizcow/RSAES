@@ -25,7 +25,7 @@ namespace ENC{
 					'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
 					'.','/','0','1','2','3','4','5','6','7','8','9'};
 
-  static inline char find(char tofind){
+  static inline char find_as_base64(char tofind){
     return static_cast<char>(
 			     (tofind >= 97) ? // a-z
 			       tofind-71
@@ -78,7 +78,7 @@ namespace ENC{
       char_array_4[i++] = (unsigned char) encoded_string[in_];in_++;
       if (i == 4){
 	for (i = 0; i < 4; i++)
-	  char_array_4[i] = static_cast<unsigned char>(find(char_array_4[i]));
+	  char_array_4[i] = static_cast<unsigned char>(find_as_base64(char_array_4[i]));
 	
 	char_array_3[0] = static_cast<unsigned char>(( char_array_4[0] << 2       ) + ((char_array_4[1] & 0x30) >> 4));
 	char_array_3[1] = static_cast<unsigned char>(((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2));
@@ -92,7 +92,7 @@ namespace ENC{
     
     if (i){
       for (j = 0; j < i; j++)
-	char_array_4[j] = static_cast<unsigned char>(find(char_array_4[j]));
+	char_array_4[j] = static_cast<unsigned char>(find_as_base64(char_array_4[j]));
       
       char_array_3[0] = static_cast<unsigned char>((char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4));
       char_array_3[1] = static_cast<unsigned char>(((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2));
@@ -145,7 +145,7 @@ namespace ENC{
 	rands+=dist_char(mt);
 
       padding = mpz_sizeinbase(key->first, 2)/8-1;
-      mpz_import(ret, padding, 1, 1, 1, 0, (input+'\0'+rands).c_str()); // convert to num    
+      mpz_import(ret, padding, 1, 1, 1, 0, (input+static_cast<char>('\0')+rands).c_str()); // convert to num
       mpz_powm(ret, ret, key->second, key->first); // encrypt
       padding = mpz_sizeinbase(ret, 2); // convert to base 64
       unsigned char *str = (unsigned char*)malloc(padding);
@@ -697,7 +697,7 @@ namespace ENC{
       gmp_randseed_ui(r, dist_r(mt));
       RSA::unpackKey(&unpacked_key, key);
 
-      size_t AESbits = pow(2,(size_t)log2(mpz_sizeinbase(unpacked_key->first, 2))+1);
+      size_t AESbits = static_cast<size_t>(pow(2, (size_t)log2(mpz_sizeinbase(unpacked_key->first, 2)) + 1));
       //generate random pass
       AES_key = new AES::AESkey(AESbits);
     }
@@ -755,7 +755,8 @@ namespace ENC{
 
     void registerPass(std::string in){
       in = rsaCore->decrypt(in);
-      std::vector<unsigned char> exp(in.begin(), in.end());
+      std::vector<unsigned char> exp(in.size());
+        memcpy(exp.data(), in.data(), in.size()); // This gets ndk to shut up
 
       AES_key = new AES::AESkey(exp);
       delete rsaCore; // dont need this anymore either
