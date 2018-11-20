@@ -1,7 +1,8 @@
 #ifndef __RSAES__
 #define __RSAES__
 
-#include <gmp.h>     // for bignums. may remove soon
+//#include <gmp.h>     
+#include "mini-gmp/mini-gmp.c" // for bignums. may remove soon
 #include <limits>    //     numerical limits
 #include <iostream>  //     showing results of tests
 #include <stdexcept> //     throwing errors in tests
@@ -196,11 +197,11 @@ namespace ENC{
 	mpz_clear(q);
       }
       ~RSAmanager(){ // clear ram just in case
-	mpz_urandomb(public_key.first, r, mpz_sizeinbase(public_key.first, 256)*8); // round up to byte
-	mpz_urandomb(public_key.second, r, mpz_sizeinbase(public_key.second, 256)*8);
+	mpz_urandomb(public_key.first, r, mpz_sizeinbase(public_key.first, 8)); // round up to byte
+	mpz_urandomb(public_key.second, r, mpz_sizeinbase(public_key.second, 8));
 	mpz_clear(public_key.first);
 	mpz_clear(public_key.second);
-	mpz_urandomb(private_key, r, mpz_sizeinbase(private_key, 256)*8);
+	mpz_urandomb(private_key, r, mpz_sizeinbase(private_key, 8));
 	mpz_clear(private_key);
 	gmp_randseed_ui(r, 0);
 	gmp_randclear(r); // don't want the seed leaked
@@ -743,8 +744,8 @@ namespace ENC{
       std::string AES_string(exp.begin(), exp.end());
       
       std::string ret = RSA::encrypt(AES_string, unpacked_key);
-      mpz_urandomb(unpacked_key->first, r, mpz_sizeinbase(unpacked_key->first, 256)*8); // scramble ram just in case
-      mpz_urandomb(unpacked_key->second, r, mpz_sizeinbase(unpacked_key->second, 256)*8);
+      mpz_urandomb(unpacked_key->first, r, mpz_sizeinbase(unpacked_key->first, 8)); // scramble ram just in case
+      mpz_urandomb(unpacked_key->second, r, mpz_sizeinbase(unpacked_key->second, 8));
       mpz_clear(unpacked_key->first);
       mpz_clear(unpacked_key->second);
       delete unpacked_key; // might as well get rid of this
