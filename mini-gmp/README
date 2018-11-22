@@ -75,3 +75,9 @@ GMP.
 The current version was put together by Niels Möller
 <nisse@lysator.liu.se>, with a fair amount of copy-and-paste from the
 GMP sources.
+
+RSAES Note: random.c is a small subset of the mpz_randstate functions
+ripped directly from the gmp sourcecode and thrown together
+haphazardly. I've compiled them to work, but that's it. I guarentee
+nothing for those working on this project. God save your soul if you
+need more functions.
