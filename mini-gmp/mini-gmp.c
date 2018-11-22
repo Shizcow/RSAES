@@ -214,11 +214,6 @@ see https://www.gnu.org/licenses/.  */
     (y) = __mp_srcptr_swap__tmp;					\
   } while (0)
 
-#define MPN_PTR_SWAP(xp,xs, yp,ys)					\
-  do {									\
-    MP_PTR_SWAP (xp, yp);						\
-    MP_SIZE_T_SWAP (xs, ys);						\
-  } while(0)
 #define MPN_SRCPTR_SWAP(xp,xs, yp,ys)					\
   do {									\
     MP_SRCPTR_SWAP (xp, yp);						\
