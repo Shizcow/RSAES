@@ -1,16 +1,28 @@
+default:
+	@echo "RSAES: Check the README for makefile instructions"
+
 clean:
 	rm -f a.out
 	rm -f vgcore*
-	rm -f valgrind*
 	rm -f RSAES.hpp
 	rm -f *~
 	rm -f mini-gmp/*~
+	rm -f \#*\#
+	rm -f mini-gmp/\#*\#
 
 test:
-	@(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES: Linking against lgmp" && g++ -lgmp -O2 tests_and_examples.cpp && ./a.out) || (echo "RSAES: Using mini-gmp instead of linkning to lgmp" && g++ -O3 tests_and_examples.cpp && ./a.out)
+ifeq ($(CXX),)
+	@(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES: Linking against lgmp" && g++ -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) || (echo "RSAES: Using mini-gmp instead of linkning to lgmp" && g++ $(CXXFLAGS) tests_and_examples.cpp && ./a.out)
+else
+	(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES: Linking against lgmp" && $(CXX) -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) || (echo "RSAES: Using mini-gmp instead of linkning to lgmp" && $(CXX) $(CXXFLAGS) tests_and_examples.cpp && ./a.out)
+endif
 
 debug:
-	@(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES Debug: Linking against lgmp" && g++ -lgmp -g -O2 tests_and_examples.cpp && valgrind ./a.out) || (echo "RSAES Debug: Using mini-gmp instead of linkning to lgmp" && g++ -O3 -g tests_and_examples.cpp && valgrind ./a.out)
+ifeq ($(CXX),)
+	@(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES: Linking against lgmp" && g++ -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) || (echo "RSAES: Using mini-gmp instead of linkning to lgmp" && g++ $(CXXFLAGS) tests_and_examples.cpp && valgrind ./a.out)
+else
+	@(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES: Linking against lgmp" && $(CXX) -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) || (echo "RSAES: Using mini-gmp instead of linkning to lgmp" && $(CXX) $(CXXFLAGS) tests_and_examples.cpp && valgrind ./a.out)
+endif
 
 init:
 ifeq ($(lib),)
@@ -28,9 +40,9 @@ endif
 lib:
 	@rm -f RSAES.hpp
 	@echo "RSAES: using <gmp.h>"
-	@(echo "#include <gmp.h>"; cat RSAES.hpp.proto) > RSAES.hpp
+	@(echo "#include <gmp.h>"; cat RSAES-proto.hpp) > RSAES.hpp
 
 nolib:
 	@rm -f RSAES.hpp
 	@echo "RSAES: using mini-gmp"
-	@(echo "#include \"mini-gmp/mini-gmp.c\""; cat RSAES.hpp.proto) > RSAES.hpp
+	@(echo "#include \"mini-gmp/mini-gmp.c\""; cat RSAES-proto.hpp) > RSAES.hpp

@@ -12,109 +12,111 @@
 #include <algorithm> //     copy_n (makes cloning vectors faster)
 #include <cstring>   //     memcpy
 
-namespace ENC{
-  static std::random_device rd;
-  static std::mt19937 mt(rd());
-  static std::uniform_int_distribution<unsigned short> dist_char(0, 255);
-  static std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
-  static std::uniform_int_distribution<unsigned long long int> dist_short(0, std::numeric_limits<unsigned short>::max());
-  static std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
+namespace RSAES{
+
+  namespace UTIL{
+    static std::random_device rd;
+    static std::mt19937 mt(rd());
+    static std::uniform_int_distribution<unsigned short> dist_char(0, 255);
+    static std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
+    static std::uniform_int_distribution<unsigned long long int> dist_short(0, std::numeric_limits<unsigned short>::max());
+    static std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
   
-  static const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
-					'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
-					'.','/','0','1','2','3','4','5','6','7','8','9'};
+    static const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+					  'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
+					  '.','/','0','1','2','3','4','5','6','7','8','9'};
 
-  static inline char find_as_base64(char tofind){
-    return static_cast<char>(
-			     (tofind >= 97) ? // a-z
+    static inline char find_as_base64(char tofind){
+      return static_cast<char>(
+			       (tofind >= 97) ? // a-z
 			       tofind-71
-			     :(tofind>=65)? // A-Z
+			       :(tofind>=65)? // A-Z
 			       tofind-65
-			     :tofind+6);     // .-9
-  }
+			       :tofind+6);     // .-9
+    }
 
-  static std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len){ // Credit to René Nyffenegger, optimized myself
-    std::string ret;
-    unsigned char i=0, j=0;
-    unsigned char char_array_3[7]; // Apparently this removes one syscall at the cost of using a little more ram
-    unsigned char *char_array_4 = char_array_3+3; // "Way" faster - SA
+    static std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len){ // Credit to René Nyffenegger, optimized myself
+      std::string ret;
+      unsigned char i=0, j=0;
+      unsigned char char_array_3[7]; // Apparently this removes one syscall at the cost of using a little more ram
+      unsigned char *char_array_4 = char_array_3+3; // "Way" faster - SA
 
-    while (in_len--) {
-      char_array_3[i++] = *(bytes_to_encode++);
-      if (i == 3) {
+      while (in_len--) {
+	char_array_3[i++] = *(bytes_to_encode++);
+	if (i == 3) {
+	  char_array_4[0] = static_cast<unsigned char>((char_array_3[0] & 0xfc) >> 2);
+	  char_array_4[1] = static_cast<unsigned char>(((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4));
+	  char_array_4[2] = static_cast<unsigned char>(((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6));
+	  char_array_4[3] = static_cast<unsigned char>(char_array_3[2] & 0x3f);
+
+	  for(i = 0; (i <4) ; i++)
+	    ret += base64_chars[char_array_4[i]];
+	  i = 0;
+	}
+      }
+
+      if (i){
+	for(j = i; j < 3; j++)
+	  char_array_3[j] = 0;
+
 	char_array_4[0] = static_cast<unsigned char>((char_array_3[0] & 0xfc) >> 2);
 	char_array_4[1] = static_cast<unsigned char>(((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4));
 	char_array_4[2] = static_cast<unsigned char>(((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6));
-	char_array_4[3] = static_cast<unsigned char>(char_array_3[2] & 0x3f);
 
-	for(i = 0; (i <4) ; i++)
-	  ret += base64_chars[char_array_4[i]];
-	i = 0;
+	for (j = 0; (j < i + 1); j++)
+	  ret += base64_chars[char_array_4[j]];
       }
+      return ret;
     }
 
-    if (i){
-      for(j = i; j < 3; j++)
-	char_array_3[j] = 0;
+    static std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger, optimized myself
+      std::string ret;
+      unsigned long in_len = encoded_string.size(), i = 0, j = 0, in_ = 0;
+      unsigned char char_array_3[7]; // See above
+      unsigned char *char_array_4 = char_array_3+3;
 
-      char_array_4[0] = static_cast<unsigned char>((char_array_3[0] & 0xfc) >> 2);
-      char_array_4[1] = static_cast<unsigned char>(((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4));
-      char_array_4[2] = static_cast<unsigned char>(((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6));
-
-      for (j = 0; (j < i + 1); j++)
-	ret += base64_chars[char_array_4[j]];
-    }
-    return ret;
-  }
-
-  static std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger, optimized myself
-    std::string ret;
-    unsigned long in_len = encoded_string.size(), i = 0, j = 0, in_ = 0;
-    unsigned char char_array_3[7]; // See above
-    unsigned char *char_array_4 = char_array_3+3;
-
-    while (in_len--){
-      char_array_4[i++] = (unsigned char) encoded_string[in_];in_++;
-      if (i == 4){
-	for (i = 0; i < 4; i++)
-	  char_array_4[i] = static_cast<unsigned char>(find_as_base64(char_array_4[i]));
+      while (in_len--){
+	char_array_4[i++] = (unsigned char) encoded_string[in_];in_++;
+	if (i == 4){
+	  for (i = 0; i < 4; i++)
+	    char_array_4[i] = static_cast<unsigned char>(find_as_base64(char_array_4[i]));
 	
-	char_array_3[0] = static_cast<unsigned char>(( char_array_4[0] << 2       ) + ((char_array_4[1] & 0x30) >> 4));
-	char_array_3[1] = static_cast<unsigned char>(((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2));
-	char_array_3[2] = static_cast<unsigned char>(((char_array_4[2] & 0x3) << 6) + char_array_4[3]);
+	  char_array_3[0] = static_cast<unsigned char>(( char_array_4[0] << 2       ) + ((char_array_4[1] & 0x30) >> 4));
+	  char_array_3[1] = static_cast<unsigned char>(((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2));
+	  char_array_3[2] = static_cast<unsigned char>(((char_array_4[2] & 0x3) << 6) + char_array_4[3]);
 	
-	for (i = 0; (i < 3); i++)
-	  ret += char_array_3[i];
-	i = 0;
+	  for (i = 0; (i < 3); i++)
+	    ret += char_array_3[i];
+	  i = 0;
+	}
       }
-    }
     
-    if (i){
-      for (j = 0; j < i; j++)
-	char_array_4[j] = static_cast<unsigned char>(find_as_base64(char_array_4[j]));
+      if (i){
+	for (j = 0; j < i; j++)
+	  char_array_4[j] = static_cast<unsigned char>(find_as_base64(char_array_4[j]));
       
-      char_array_3[0] = static_cast<unsigned char>((char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4));
-      char_array_3[1] = static_cast<unsigned char>(((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2));
+	char_array_3[0] = static_cast<unsigned char>((char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4));
+	char_array_3[1] = static_cast<unsigned char>(((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2));
  
-      for (j = 0; (j < i - 1); j++) ret += char_array_3[j];
+	for (j = 0; (j < i - 1); j++) ret += char_array_3[j];
+      }
+      return ret;
     }
-    return ret;
   }
-
   namespace RSA{
     static std::string packKey(std::pair<mpz_t,mpz_t> key){
       size_t padding = mpz_sizeinbase(key.first, 2); // bits
       padding = padding/8+(padding%8>0?1:0);
       unsigned char *str = (unsigned char*)malloc(padding);
       mpz_export(str, nullptr, 1, 1, 1, 0, key.first);
-      std::string first = base64_encode(str, padding);
+      std::string first = UTIL::base64_encode(str, padding);
       free(str);
     
       padding = mpz_sizeinbase(key.second, 2); // bits
       padding = padding/8+(padding%8>0?1:0);
       str = (unsigned char*)malloc(padding);
       mpz_export(str, nullptr, 1, 1, 1, 0, key.second);
-      std::string second = base64_encode(str, padding);
+      std::string second = UTIL::base64_encode(str, padding);
       free(str);
     
       return first+'_'+second;
@@ -123,8 +125,8 @@ namespace ENC{
     static void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string key){
       std::string first = key.substr(0, key.find('_'));
       key.erase(0, first.length()+1);
-      first = base64_decode(first);
-      std::string second = base64_decode(key);
+      first = UTIL::base64_decode(first);
+      std::string second = UTIL::base64_decode(key);
 
       *rop = new std::pair<mpz_t,mpz_t>;
       mpz_init((*rop)->first);
@@ -141,7 +143,7 @@ namespace ENC{
 	throw std::invalid_argument("message too large!");
       std::string rands;
       for(size_t i=0; i<padding-input.length()-1; ++i)
-	rands+=dist_char(mt);
+	rands+=UTIL::dist_char(UTIL::mt);
 
       padding = mpz_sizeinbase(key->first, 2)/8-1;
       mpz_import(ret, padding, 1, 1, 1, 0, (input+static_cast<char>('\0')+rands).c_str()); // convert to num
@@ -149,7 +151,7 @@ namespace ENC{
       padding = mpz_sizeinbase(ret, 2); // convert to base 64
       unsigned char *str = (unsigned char*)malloc(padding);
       mpz_export(str, nullptr, 1, 1, 1, 0, ret);
-      std::string ret_str = base64_encode(str, padding/8+(padding%8>0?1:0));
+      std::string ret_str = UTIL::base64_encode(str, padding/8+(padding%8>0?1:0));
       free(str);
       mpz_clear(ret);
       return ret_str;
@@ -175,7 +177,7 @@ namespace ENC{
 	mpz_init(public_key.first);
 	mpz_init(public_key.second);
 	gmp_randinit_default(r);
-	gmp_randseed_ui(r, dist_r(mt));
+	gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
 	randPrime(public_key.second, bits);
 	mpz_t q;
 	mpz_init(q);
@@ -266,7 +268,7 @@ namespace ENC{
       }
   
       static inline void unzip(mpz_t rop, std::string input){
-	std::string dec = base64_decode(input);
+	std::string dec = UTIL::base64_decode(input);
 	mpz_import(rop, dec.length(), 1, 1, 1, 0, dec.c_str());
       }
 
@@ -277,7 +279,7 @@ namespace ENC{
   }
 
   namespace AES{
-    static unsigned char (&rotate(unsigned char (&word)[4]))[4]{
+    static unsigned char (&rotate(unsigned char (&word)[4]))[4]{ // shifts array one to the left
       unsigned char tmp = word[0];
       word[0] = word[1];
       word[1] = word[2];
@@ -549,11 +551,13 @@ namespace ENC{
       return out; 
     }
 
-    struct AESkey{
-      std::vector<unsigned char> expanded_key;
+    class AESkey{
+    private:
       unsigned int idx;
       bool mode; // true = forward, false = backward
+    public:
       size_t base;
+      std::vector<unsigned char> expanded_key;
       AESkey(std::vector<unsigned char> in) : idx(0), mode(true){
 	base = in.size();
 	expanded_key = expand_key(in);
@@ -567,14 +571,14 @@ namespace ENC{
 	unsigned short *ptr = reinterpret_cast<unsigned short*>(vec.data()); // I mean, it's faster
 	size_t base_2 = base/2;
 	for(size_t i=0; i<base_2; ++i, ++ptr)
-	  *ptr = dist_char_1(mt)|(dist_char_1(mt)<<8); // Why does this break when either of the bytes are zero
+	  *ptr = UTIL::dist_char_1(UTIL::mt)|(UTIL::dist_char_1(UTIL::mt)<<8); // Why does this break when either of the bytes are zero
 	expanded_key = expand_key(vec);
       }
       ~AESkey(){ // clear ram just in case
 	unsigned short *ptr = (unsigned short *)expanded_key.data();
 	size_t size = expanded_key.size()/2;
 	for(size_t i=0; i<size; ++i, ++ptr)
-	  *ptr = static_cast<unsigned short>(dist_short(mt));
+	  *ptr = static_cast<unsigned short>(UTIL::dist_short(UTIL::mt));
 	idx = 0;
 	mode = true;
 	base = 0;
@@ -640,7 +644,7 @@ namespace ENC{
       if(size_s!=size_p){ // it needs padding
 	input+=static_cast<char>('\0');
 	for(size_t i=0; i<(size_p-size_s-1); ++i)
-	  input+=(char)dist_char(mt);
+	  input+=(char)UTIL::dist_char(UTIL::mt);
       }
       std::string ret;
       const char * c = input.c_str();
@@ -653,11 +657,11 @@ namespace ENC{
 	    ret+=(char)el;
 	}
       }
-      return base64_encode((const unsigned char*)ret.c_str(), size_p);
+      return UTIL::base64_encode((const unsigned char*)ret.c_str(), size_p);
     }
 
     static std::string big_decrypt(std::string input, AESkey expanded_key){ // returns as string
-      input = base64_decode(input);
+      input = UTIL::base64_decode(input);
       size_t size_s = input.length(); // to strip off after the null we put in
       
       std::string ret;
@@ -688,12 +692,12 @@ namespace ENC{
   public:
     EncryptionManager(unsigned int RSAbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're sending out the public key
       gmp_randinit_default(r);
-      gmp_randseed_ui(r, dist_r(mt));
+      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
       rsaCore = new RSA::RSAmanager(RSAbits);
     }
     EncryptionManager(std::string key): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're recieving the public key and generating a pass for AES
       gmp_randinit_default(r);
-      gmp_randseed_ui(r, dist_r(mt));
+      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
       RSA::unpackKey(&unpacked_key, key);
 
       size_t AESbits = static_cast<size_t>(pow(2, (size_t)log2(mpz_sizeinbase(unpacked_key->first, 2)) + 1));
@@ -702,7 +706,7 @@ namespace ENC{
     }
     EncryptionManager(std::string key, size_t AESbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // specify AES size
       gmp_randinit_default(r);
-      gmp_randseed_ui(r, dist_r(mt));
+      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
       RSA::unpackKey(&unpacked_key, key);
       AES_key = new AES::AESkey(AESbits);
     }
@@ -752,10 +756,10 @@ namespace ENC{
       return ret;
     }
 
-    void registerPass(std::string in){
-      in = rsaCore->decrypt(in);
-      std::vector<unsigned char> exp(in.size());
-        memcpy(exp.data(), in.data(), in.size()); // This gets ndk to shut up
+    void registerPass(std::string KeyResponse){
+      KeyResponse = rsaCore->decrypt(KeyResponse);
+      std::vector<unsigned char> exp(KeyResponse.size());
+      memcpy(exp.data(), KeyResponse.data(), KeyResponse.size()); // This gets ndk to shut up
 
       AES_key = new AES::AESkey(exp);
       delete rsaCore; // dont need this anymore either
@@ -775,7 +779,7 @@ namespace ENC{
     }
   };
 
-  bool EncryptionManagerTest(){
+  bool EncryptionManagerTest(bool print){
     std::string word_bank[100] = {
 				  "pleasant",
 				  "foot",
@@ -892,10 +896,10 @@ namespace ENC{
 
       std::cout << "Register the AES key with manager 1. Now we can send a message:" << std::endl;
       Bob.registerPass(msg);
-      std::string msg_s = word_bank[dist_100(mt)];
-      int words = dist_100(mt);
+      std::string msg_s = word_bank[dist_100(UTIL::mt)];
+      int words = dist_100(UTIL::mt);
       for(int i=0; i<words; ++i)
-	(msg_s+=' ')+=word_bank[dist_100(mt)];
+	(msg_s+=' ')+=word_bank[dist_100(UTIL::mt)];
       msg = Bob.encrypt(msg_s);
       std::cout << msg << std::endl << std::endl;
 
@@ -906,10 +910,10 @@ namespace ENC{
 	throw std::runtime_error("Messages aren't same");
   
       std::cout << "Now let's go the other way. Encrypt with manager 2:" << std::endl;
-      msg_s = word_bank[dist_100(mt)];
-      words = dist_100(mt);
+      msg_s = word_bank[dist_100(UTIL::mt)];
+      words = dist_100(UTIL::mt);
       for(int i=0; i<words; ++i)
-	(msg_s+=' ')+=word_bank[dist_100(mt)];
+	(msg_s+=' ')+=word_bank[dist_100(UTIL::mt)];
       msg = Allice.encrypt(msg_s);
       std::cout << msg << std::endl << std::endl;
 
@@ -922,21 +926,6 @@ namespace ENC{
       return false;
     }
     return true;
-  }
-
-  bool EncryptionManagerTest(unsigned int tests){
-    unsigned int f=0;
-    for(unsigned int done=0, s=0; done<tests; ++done){
-      if(EncryptionManagerTest())
-	++s;
-      else
-	++f;
-      std::cout << "-----------------------" << std::endl;
-      std::cout << "SUCESSFULL TESTS: " << s << std::endl;
-      std::cout << "FAILED TESTS: " << f << std::endl;
-      std::cout << "-----------------------" << std::endl;
-    }
-    return f==0;
   }
 }
 
