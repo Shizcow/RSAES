@@ -26,6 +26,8 @@ see https://www.gnu.org/licenses/.
 
 -------------------------------------------------------------------------
 
+                               DESCRIPTION
+
 This is RSAES, a C++ interface for encryption over RSA and AES-N.
 
 It is intended for applications which need very simple encryption
@@ -38,7 +40,7 @@ at [].
 
 -------------------------------------------------------------------------
 
-                         MAKEFILE INSTRUCTIONS
+                          MAKEFILE INSTRUCTIONS
 
 To begin using RSAES, one must first run `make init` in the RSAES
 directory. This will construct RSAES.hpp from RSAES.hpp.proto, which can

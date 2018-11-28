@@ -12,16 +12,16 @@ clean:
 
 test:
 ifeq ($(CXX),)
-	@(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES: Linking against lgmp" && g++ -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) || (echo "RSAES: Using mini-gmp instead of linkning to lgmp" && g++ $(CXXFLAGS) tests_and_examples.cpp && ./a.out)
+	@if (cat RSAES.hpp | grep "#include <gmp.h>") ; then (echo "RSAES: Linking against lgmp" && g++ -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) ; else (echo "RSAES: Using mini-gmp" && g++ $(CXXFLAGS) tests_and_examples.cpp && ./a.out) ; fi
 else
-	(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES: Linking against lgmp" && $(CXX) -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) || (echo "RSAES: Using mini-gmp instead of linkning to lgmp" && $(CXX) $(CXXFLAGS) tests_and_examples.cpp && ./a.out)
+	@if (cat RSAES.hpp | grep "#include <gmp.h>") ; then (echo "RSAES: Linking against lgmp" && $(CXX) -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) ; else (echo "RSAES: Using mini-gmp" && $(CXX) $(CXXFLAGS) tests_and_examples.cpp && ./a.out) ; fi
 endif
 
 debug:
 ifeq ($(CXX),)
-	@(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES: Linking against lgmp" && g++ -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) || (echo "RSAES: Using mini-gmp instead of linkning to lgmp" && g++ $(CXXFLAGS) tests_and_examples.cpp && valgrind ./a.out)
+	@if (cat RSAES.hpp | grep "#include <gmp.h>") ; then (echo "RSAES: Linking against lgmp" && g++ -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) ; else (echo "RSAES: Using mini-gmp" && g++ $(CXXFLAGS) tests_and_examples.cpp && valgrind ./a.out) ; fi
 else
-	@(cat RSAES.hpp | grep "#include <gmp.h>") && (echo "RSAES: Linking against lgmp" && $(CXX) -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) || (echo "RSAES: Using mini-gmp instead of linkning to lgmp" && $(CXX) $(CXXFLAGS) tests_and_examples.cpp && valgrind ./a.out)
+	@if (cat RSAES.hpp | grep "#include <gmp.h>") ; then (echo "RSAES: Linking against lgmp" && $(CXX) -lgmp $(CXXFLAGS) tests_and_examples.cpp && ./a.out) ; else (echo "RSAES: Using mini-gmp" && $(CXX) $(CXXFLAGS) tests_and_examples.cpp && valgrind ./a.out) ; fi
 endif
 
 init:
