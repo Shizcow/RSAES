@@ -189,7 +189,8 @@ std::string test_low_level_AES(){
   return "";
 }
 
-int main(){
+int main(){  
+  
   std::cout << "TESTING HIGH LEVEL INTERFACE" << std::endl;
 
   unsigned int f_high=0, s_high=0;
@@ -264,7 +265,6 @@ int main(){
     std::cout << "PASSED TESTS" << std::endl;
   else
     std::cout << "FAILED TESTS" << std::endl;
-    
   
   return 0;
 }
