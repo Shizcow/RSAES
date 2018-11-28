@@ -255,7 +255,6 @@ int main(){
   std::cout << "SUCESSFULL TESTS: " << s_rsa << std::endl;
   std::cout << "FAILED TESTS: " << f_rsa << std::endl;
   std::cout << "-----------------------" << std::endl;
-  std::cout << "-----------------------" << std::endl;
   std::cout << "LOW LEVEL INTERFACE AES" << std::endl;
   std::cout << "SUCESSFULL TESTS: " << s_aes << std::endl;
   std::cout << "FAILED TESTS: " << f_aes << std::endl;
