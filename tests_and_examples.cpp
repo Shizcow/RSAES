@@ -1,4 +1,6 @@
 #include "RSAES.hpp"
+#include <iostream>  //     showing results of tests
+#include <stdexcept> //     throwing errors in tests
 
 std::string word_bank[50] = {
 			      "pleasant",

@@ -3,12 +3,10 @@
 
 //will use mini-gmp or gmp.h, whichever specified during make
 #include <limits>    //     numerical limits
-#include <iostream>  //     showing results of tests
-#include <stdexcept> //     throwing errors in tests
 #include <string>    //     passing messages in std::string
 #include <vector>    //     big key storage
 #include <array>     //     round key passing
-#include <random>    //     crypto afterall
+#include <random>    //     it'scrypto afterall
 #include <algorithm> //     copy_n (makes cloning vectors faster)
 #include <cstring>   //     memcpy
 
