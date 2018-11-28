@@ -24,6 +24,10 @@ You should have received copies of the GNU General Public License and the
 GNU Lesser General Public License along with the GNU MP Library.  If not,
 see https://www.gnu.org/licenses/.
 
+This project uses mini-gmp, a subset of GMP. Both GMP and mini-gmp are
+licensed under GNU GPL. Specifics of their licencing can be found at
+https://gmplib.org/.
+
 -------------------------------------------------------------------------
 
                                DESCRIPTION
@@ -32,11 +36,16 @@ This is RSAES, a C++ interface for encryption over RSA and AES-N.
 
 It is intended for applications which need very simple encryption
 in a very small footprint. This library is meant to be portable
-above all else, with two options of use: using apre-compiled
+above all else, with two options of use: using a pre-compiled
 version of GMP linked through lgmp, or through a version of
-mini-gmp, which is contained herein. Both GMP and mini-gmp are
-licensed under GNU GPL. Specifics of their licencing can be found
-at [].
+mini-gmp when <gmp.h> is not available, which is contained herein.
+
+AES-N is a fork of the AES algorithm which has been designed to work with
+any key size that is a power of two above 128. For values of 128, 256,
+and 512, the algorithm is the same as the reference AES algorithm.
+Larger key sizes follow the most obvious pattern in the algorithm, and
+are implimented accordingly. I've personally tested key sizes up to 
+about 1 Gigabyte with success.
 
 -------------------------------------------------------------------------
 
@@ -111,8 +120,8 @@ EncryptionManager(unsigned int RSAbits)
 EncryptionManager(std::string key, size_t AESbits)
     Creates an EncryptionManager using an RSA public key. This public key
     should come from the getPublicKey() method from the first
-    constructor. AESbits is the size of bits in AES-N. See description
-    of algorithms for clarification.
+    constructor. AESbits is the size of bits in AES-N. See description for
+    clarification on AES-N.
 
     At this point, the getKeyResponse() method is now available.
 
