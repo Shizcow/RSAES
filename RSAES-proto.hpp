@@ -277,13 +277,12 @@ namespace RSAES{
   }
 
   namespace AES{
-    static unsigned char (&rotate(unsigned char (&word)[4]))[4]{ // shifts array one to the left
+    static void rotate(unsigned char * word){ // shifts array one to the left
       unsigned char tmp = word[0];
       word[0] = word[1];
       word[1] = word[2];
       word[2] = word[3];
       word[3] = tmp;
-      return word;
     }
   
     /* Calculate the rcon used in key expansion */
@@ -339,80 +338,69 @@ namespace RSAES{
       return stable_inv[in];
     }
 
-    static unsigned char (&schedule_core(unsigned char (&in)[4], unsigned char i))[4]{
+    static void schedule_core(unsigned char * in, unsigned char i){
       unsigned char a;
       rotate(in);
       for(a = 0; a < 4; a++) 
 	in[a] = sbox(in[a]);
       in[0] ^= rcon(i);
-      return in;
     }
 
-    static unsigned char (&addRoundKey(unsigned char (&in)[4][4], std::array<unsigned char, 16> key))[4][4]{
-      for(unsigned char i=0; i<4; ++i)
-	for(unsigned char j=0; j<4; ++j)
-	  in[i][j]^=key[4*i+j];
-      return in;
+    static void addRoundKey(unsigned char * in, std::array<unsigned char, 16> key){
+      for(unsigned char i=0; i<16; ++i)
+	  in[i]^=key[i];
     }
 
-    static unsigned char (&shiftrows(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
-      unsigned char tmp = rows[1][0];
-      rows[1][0] = rows[1][1];
-      rows[1][1] = rows[1][2];
-      rows[1][2] = rows[1][3];
-      rows[1][3] = tmp; // shift second row once
+    static void shiftrows(unsigned char * rows){ // reference for slight speed boost
+      unsigned char tmp = rows[1*4+0];
+      rows[1*4+0] = rows[1*4+1];
+      rows[1*4+1] = rows[1*4+2];
+      rows[1*4+2] = rows[1*4+3];
+      rows[1*4+3] = tmp; // shift second row once
 
-      tmp = rows[2][0];
-      rows[2][0] = rows[2][2];
-      rows[2][2] = tmp;
-      tmp = rows[2][1];
-      rows[2][1] = rows[2][3];
-      rows[2][3] = tmp; // shift third row twice
+      tmp = rows[2*4+0];
+      rows[2*4+0] = rows[2*4+2];
+      rows[2*4+2] = tmp;
+      tmp = rows[2*4+1];
+      rows[2*4+1] = rows[2*4+3];
+      rows[2*4+3] = tmp; // shift third row twice
 
-      tmp = rows[3][0];
-      rows[3][0] = rows[3][3];
-      rows[3][3] = rows[3][2];
-      rows[3][2] = rows[3][1];
-      rows[3][1] = tmp; // shift the fourth row thrice
-
-      return rows;
+      tmp = rows[3*4+0];
+      rows[3*4+0] = rows[3*4+3];
+      rows[3*4+3] = rows[3*4+2];
+      rows[3*4+2] = rows[3*4+1];
+      rows[3*4+1] = tmp; // shift the fourth row thrice
     }
-    static unsigned char (&unshiftrows(unsigned char (&rows)[4][4]))[4][4]{ // reference for slight speed boost
-      unsigned char tmp = rows[1][0];
-      rows[1][0] = rows[1][3];
-      rows[1][3] = rows[1][2];
-      rows[1][2] = rows[1][1];
-      rows[1][1] = tmp; // shift second row once
+    static void unshiftrows(unsigned char * rows){ // reference for slight speed boost
+      unsigned char tmp = rows[4*1+0];
+      rows[1*4+0] = rows[1*4+3];
+      rows[1*4+3] = rows[1*4+2];
+      rows[1*4+2] = rows[1*4+1];
+      rows[1*4+1] = tmp; // shift second row once
 
-      tmp = rows[2][0];
-      rows[2][0] = rows[2][2];
-      rows[2][2] = tmp;
-      tmp = rows[2][1];
-      rows[2][1] = rows[2][3];
-      rows[2][3] = tmp; // shift third row twice
+      tmp = rows[2*4+0];
+      rows[2*4+0] = rows[2*4+2];
+      rows[2*4+2] = tmp;
+      tmp = rows[2*4+1];
+      rows[2*4+1] = rows[2*4+3];
+      rows[2*4+3] = tmp; // shift third row twice
 
-      tmp = rows[3][0];
-      rows[3][0] = rows[3][1];
-      rows[3][1] = rows[3][2];
-      rows[3][2] = rows[3][3];
-      rows[3][3] = tmp; // shift the fourth row thrice
-
-      return rows;
+      tmp = rows[3*4+0];
+      rows[3*4+0] = rows[3*4+1];
+      rows[3*4+1] = rows[3*4+2];
+      rows[3*4+2] = rows[3*4+3];
+      rows[3*4+3] = tmp; // shift the fourth row thrice
     }
 
   
-    static unsigned char (&subBytes_encrypt(unsigned char (&rows)[4][4]))[4][4]{
-      for(auto &row: rows)
-	for(auto &elem: row)
-	  elem = sbox(elem);
-      return rows;
+    static void subBytes_encrypt(unsigned char * rows){
+      for(int i=0; i<16; ++i)
+	*(rows+i) = sbox(*(rows+i));
     }
   
-    static unsigned char (&subBytes_decrypt(unsigned char (&rows)[4][4]))[4][4]{
-      for(auto &row: rows)
-	for(auto &elem: row)
-	  elem = sbox_inv(elem);
-      return rows;
+    static void subBytes_decrypt(unsigned char * rows){
+      for(int i=0; i<16; ++i)
+	*(rows+i) = sbox_inv(*(rows+i));
     }
 
     static unsigned char ltable[256] = {0x00, 0xff, 0xc8, 0x08, 0x91, 0x10, 0xd0, 0x36, 
@@ -485,7 +473,7 @@ namespace RSAES{
       return static_cast<unsigned char>((!a || !b) ? 0 : atable[(ltable[a] + ltable[b]) % 255]);
     }
 
-    static unsigned char (&mixColumn(unsigned char (&r)[4]))[4] {
+    static void mixColumn(unsigned char *r) {
       unsigned char a[4], b[4], c;
       for (c=0; c<4; c++)
 	(b[c] = (a[c]=r[c]) << 1) ^= 0x1B & (unsigned char)((signed char)r[c] >> 7);
@@ -493,33 +481,29 @@ namespace RSAES{
       r[1] = b[1] ^ a[0] ^ a[3] ^ b[2] ^ a[2];
       r[2] = b[2] ^ a[1] ^ a[0] ^ b[3] ^ a[3];
       r[3] = b[3] ^ a[2] ^ a[1] ^ b[0] ^ a[0];
-      return r;
     }
 
-    static unsigned char (&unmixColumn(unsigned char (&r)[4]))[4] { // this one can't be optimised like mixColumn because the numbers are much larger
+    static void unmixColumn(unsigned char * r) { // this one can't be optimised like mixColumn because the numbers are much larger
       unsigned char a[4];
       memcpy(a, r , 4);
       r[0] = gmul(14,a[0])^gmul(11,a[1])^gmul(13,a[2])^gmul(9,a[3]);
       r[1] = gmul(9,a[0])^gmul(14,a[1])^gmul(11,a[2])^gmul(13,a[3]);
       r[2] = gmul(13,a[0])^gmul(9,a[1])^gmul(14,a[2])^gmul(11,a[3]);
       r[3] = gmul(11,a[0])^gmul(13,a[1])^gmul(9,a[2])^gmul(14,a[3]);
-      return r;
     }
 
-    static unsigned char (&mixColumns(unsigned char (&in)[4][4]))[4][4] {
-      mixColumn(in[0]);
-      mixColumn(in[1]);
-      mixColumn(in[2]);
-      mixColumn(in[3]);
-      return in;
+    static void mixColumns(unsigned char *in){
+      mixColumn(in);
+      mixColumn(in+1*4);
+      mixColumn(in+2*4);
+      mixColumn(in+3*4);
     }
 
-    static unsigned char (&unmixColumns(unsigned char (&in)[4][4]))[4][4] {
-      unmixColumn(in[0]);
-      unmixColumn(in[1]);
-      unmixColumn(in[2]);
-      unmixColumn(in[3]);
-      return in;
+    static void unmixColumns(unsigned char *in){
+      unmixColumn(in);
+      unmixColumn(in+1*4);
+      unmixColumn(in+2*4);
+      unmixColumn(in+3*4);
     }
 
     static std::vector<unsigned char> expand_key(std::vector<unsigned char> in){ // N bit key
@@ -600,7 +584,7 @@ namespace RSAES{
       }
     };
 
-    static unsigned char (&small_encrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
+    static void small_encrypt(unsigned char * in, AESkey expanded_key){
       size_t N = expanded_key.base;
       expanded_key.setStart();
       addRoundKey(in, expanded_key.getRoundKey(true));
@@ -613,9 +597,8 @@ namespace RSAES{
       subBytes_encrypt(in);
       shiftrows(in);
       addRoundKey(in, expanded_key.getRoundKey(false));
-      return in;
     }
-    static unsigned char (&small_decrypt(unsigned char (&in)[4][4], AESkey expanded_key))[4][4]{
+    static void small_decrypt(unsigned char * in, AESkey expanded_key){
       size_t N = expanded_key.base;
       expanded_key.setEnd();
     
@@ -630,53 +613,37 @@ namespace RSAES{
 	subBytes_decrypt(in);
       }
       addRoundKey(in, expanded_key.getRoundKey(false));
-      return in;
     }
 
     static std::string big_encrypt(std::string input, AESkey expanded_key){ // returns as base64
       size_t size_s = input.length(); // size before padding
       if(size_s==0)
 	return "";
-      size_t size_p = size_s % 16; // size after padding
-      size_p = size_p==0?size_s:size_s+16-size_p;
+      size_t size_p = size_s % 16;
+      size_p = size_p==0?size_s:size_s+16-size_p; // size after padding
       if(size_s!=size_p){ // it needs padding
+	input.reserve(size_s); // fewer reallocs
 	input+=static_cast<char>('\0');
 	for(size_t i=0; i<(size_p-size_s-1); ++i)
 	  input+=(char)UTIL::dist_char(UTIL::mt);
       }
-      std::string ret;
-      const char * c = input.c_str();
-      for(size_t i=0; i<size_p; i+=16){
-	unsigned char arr[4][4];
-	memcpy(arr, c+i, 16);
-	small_encrypt(arr, expanded_key);
-	for(auto &row: arr){
-	  for(auto &el: row)
-	    ret+=(char)el;
-	}
-      }
-      return UTIL::base64_encode((const unsigned char*)ret.c_str(), size_p);
+      
+      unsigned char * c = (unsigned char*)input.data();
+      for(size_t i=0; i<size_p; i+=16)
+	small_encrypt(c+i, expanded_key); // This is so shady
+      
+      return UTIL::base64_encode((const unsigned char*)input.c_str(), size_p);
     }
 
     static std::string big_decrypt(std::string input, AESkey expanded_key){ // returns as string
       input = UTIL::base64_decode(input);
-      size_t size_s = input.length(); // to strip off after the null we put in
+      size_t size_s = input.length();
       
-      std::string ret;
-      const char * c = input.c_str();
-      for(size_t i=0; i<size_s; i+=16){
-	unsigned char arr[4][4];
-	memcpy(arr, c+i, 16);
-	small_decrypt(arr, expanded_key);
-	for(auto &row: arr){
-	  for(auto &el: row)
-	    if(el==0)
-	      return ret;
-	    else
-	      ret+=(char)el;
-	}
-      }
-      return ret;
+      unsigned char * c = (unsigned char*)input.c_str();
+      for(size_t i=0; i<size_s; i+=16)
+	small_decrypt(c+i, expanded_key);
+      input.resize(strlen(input.c_str())); // makes string comparisons shut up
+      return input;
     }
   }
   
