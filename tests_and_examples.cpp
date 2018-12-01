@@ -174,13 +174,6 @@ std::string test_low_level_AES(){
     std::cout << "Decrypt the message using the key" << std::endl;
     msg = RSAES::AES::big_decrypt(msg, Allice);
     std::cout << msg << std::endl << std::endl;
-    {
-      std::cout << "For reference, the key in base64:" << std::endl;
-      auto p = Allice.expanded_key.begin();
-      std::vector<unsigned char> exp(p, p+Allice.base); // send the un-expanded key so that we need less data to send
-      std::string AES_string(exp.begin(), exp.end());
-      std::cout << RSAES::UTIL::base64_encode((const unsigned char*)AES_string.c_str(), AES_string.size()) << std::endl << std::endl;
-    }
     if(msg_s!=msg)
       throw std::runtime_error("Messages aren't same - small");
   } catch (const std::runtime_error& error){
@@ -189,8 +182,31 @@ std::string test_low_level_AES(){
   return "";
 }
 
-int main(){  
-  
+bool test_gigabit(){
+  try{
+    std::cout << "Create and expand an AESkey of 1 gigabit key size" << std::endl;
+    RSAES::AES::AESkey Allice(1073741824);
+    std::cout << "Key created. Encrypt the message using the key" << std::endl;
+    std::string msg_s = word_bank[dist_50(RSAES::UTIL::mt)];
+
+    for(int i=0; i<50; ++i)
+      (msg_s+=' ')+=word_bank[dist_50(RSAES::UTIL::mt)];
+    std::string msg = RSAES::AES::big_encrypt(msg_s, Allice);
+    std::cout << msg << std::endl << std::endl;
+
+    std::cout << "Decrypt the message using the key" << std::endl;
+    msg = RSAES::AES::big_decrypt(msg, Allice);
+    std::cout << msg << std::endl << std::endl;
+    if(msg_s!=msg)
+      throw std::runtime_error("Messages aren't same - gigabit");
+  } catch (const std::runtime_error& error){
+    return false;
+  }
+  return true;
+}
+
+
+int main(){
   std::cout << "TESTING HIGH LEVEL INTERFACE" << std::endl;
 
   unsigned int f_high=0, s_high=0;
@@ -208,7 +224,7 @@ int main(){
     std::cout << "FAILED TESTS: " << f_high << std::endl;
     std::cout << "-----------------------" << std::endl;
   }
-
+  
   std::cout << "TESTING LOW LEVEL INTERFACE - RSA" << std::endl;
 
   unsigned int f_rsa=0, s_rsa=0;
@@ -245,6 +261,15 @@ int main(){
     std::cout << "-----------------------" << std::endl;
   }
   
+  std::cout << "TESTING LOW LEVEL INTERFACE - AES AT 1 GIGABIT KEY SIZE" << std::endl;
+  bool s_gigabit = test_gigabit();
+  if(!s_gigabit)
+      std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << "Messages aren't same - gigabit" << std::endl;
+  std::cout << "-----------------------" << std::endl;
+  std::cout << "GIGABIT AES LOW LEVEL  " << std::endl;
+  std::cout << "TEST " << (s_gigabit?"PASSED":"FAILED") << std::endl;
+  std::cout << "-----------------------" << std::endl;
+    
 
   std::cout << std::endl << "TEST RESULTS:" << std::endl;
   std::cout << "-----------------------" << std::endl;
@@ -260,8 +285,11 @@ int main(){
   std::cout << "SUCESSFULL TESTS: " << s_aes << std::endl;
   std::cout << "FAILED TESTS: " << f_aes << std::endl;
   std::cout << "-----------------------" << std::endl;
+  std::cout << "GIGABIT AES LOW LEVEL  " << std::endl;
+  std::cout << "TEST " << (s_gigabit?"PASSED":"FAILED") << std::endl;
+  std::cout << "-----------------------" << std::endl;
 
-  if(!f_high && !f_rsa && !f_aes)
+  if(!f_high && !f_rsa && !f_aes && s_gigabit)
     std::cout << "PASSED TESTS" << std::endl;
   else
     std::cout << "FAILED TESTS" << std::endl;

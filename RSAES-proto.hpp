@@ -9,6 +9,7 @@
 #include <random>    //     it'scrypto afterall
 #include <algorithm> //     copy_n (makes cloning vectors faster)
 #include <cstring>   //     memcpy
+#include <thread>    //     multithreading
 
 namespace RSAES{
 
@@ -17,7 +18,6 @@ namespace RSAES{
     static std::mt19937 mt(rd());
     static std::uniform_int_distribution<unsigned short> dist_char(0, 255);
     static std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
-    static std::uniform_int_distribution<unsigned long long int> dist_short(0, std::numeric_limits<unsigned short>::max());
     static std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
   
     static const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
@@ -102,7 +102,7 @@ namespace RSAES{
     }
   }
   namespace RSA{
-    static std::string packKey(std::pair<mpz_t,mpz_t> key){
+    static std::string packKey(std::pair<mpz_t,mpz_t> const& key){
       size_t padding = mpz_sizeinbase(key.first, 2); // bits
       padding = padding/8+(padding%8>0?1:0);
       unsigned char *str = (unsigned char*)malloc(padding);
@@ -120,11 +120,11 @@ namespace RSAES{
       return first+'_'+second;
     };
 
-    static void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string key){
+    static void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string const& key){
       std::string first = key.substr(0, key.find('_'));
-      key.erase(0, first.length()+1);
+      std::string second = key.substr(first.length()+1, key.length());
       first = UTIL::base64_decode(first);
-      std::string second = UTIL::base64_decode(key);
+      second = UTIL::base64_decode(second);
 
       *rop = new std::pair<mpz_t,mpz_t>;
       mpz_init((*rop)->first);
@@ -133,7 +133,7 @@ namespace RSAES{
       mpz_import((*rop)->second, second.length(), 1, 1, 1, 0, second.c_str());
     }
   
-    static std::string encrypt(std::string input, std::pair<mpz_t,mpz_t> *key){
+    static std::string encrypt(std::string const& input, std::pair<mpz_t,mpz_t> *key){
       size_t padding = mpz_sizeinbase(key->first, 2)/8-1; // pad message
       mpz_t ret;
       mpz_init(ret);
@@ -155,12 +155,24 @@ namespace RSAES{
       return ret_str;
     }
 
+    static inline void unzip(mpz_t rop, std::string const& input){
+      std::string dec = UTIL::base64_decode(input);
+      mpz_import(rop, dec.length(), 1, 1, 1, 0, dec.c_str());
+    }
+
+    inline std::string fromInt(mpz_t input){
+      char *str = (char*)malloc(1+((mpz_sizeinbase(input, 2)-1)/8));
+      mpz_export(str, nullptr, 1, 1, 1, 0, input);
+      std::string ret(str);
+      free(str);
+      return ret;
+    }
   
     class RSAmanager{
     public:
       std::pair<mpz_t,mpz_t> public_key;
       
-      inline std::string decrypt(std::string msg){
+      inline std::string decrypt(std::string const& msg){
 	mpz_t tmp;
 	mpz_init(tmp);
 	unzip(tmp, msg);
@@ -191,8 +203,8 @@ namespace RSAES{
 	  mpz_add_ui(public_key.second, public_key.second, USHRT_MAX); // Slightly more secure but terrible performance. Doesn't really matter though because we only do this once
 	  mpz_gcd(private_key, q, public_key.second); // check if coprime
 	} while(mpz_cmp_ui(private_key,1)); // gcd!=1
-
-	modInv(private_key, public_key.second, q); // I feel like we could remove a var in modInv somehow
+	
+	mpz_invert(private_key, public_key.second, q); // Built in is way faster
 	mpz_clear(q);
       }
       ~RSAmanager(){ // clear ram just in case
@@ -209,65 +221,10 @@ namespace RSAES{
     private:
       gmp_randstate_t r;
       mpz_t private_key;
-
-      std::string fromInt(mpz_t input){
-	char *str = (char*)malloc(1+((mpz_sizeinbase(input, 2)-1)/8));
-	mpz_export(str, nullptr, 1, 1, 1, 0, input);
-	std::string ret(str);
-	free(str);
-	return ret;
-      }
       
-      inline void randPrime(mpz_t rop, unsigned int bits){
+      inline void randPrime(mpz_t rop, unsigned int bits){ // this is too slow
 	do mpz_urandomb(rop, r, bits);
 	while(!mpz_probab_prime_p(rop, 100)); // muler-rabbin
-      }
-      
-      static inline void modInv(mpz_t rop, const mpz_t a0, mpz_t m){
-	//if(!mpz_cmp_ui(m, 1)) // m==1 
-	//  return; // we can safely assume m!=1
-	mpz_t m0, y, q, t, a;
-	mpz_init(a);
-	mpz_set(a, a0);
-	mpz_init(m0);
-	mpz_init(y);
-	mpz_init(q);
-	mpz_init(t);
-	mpz_set(m0, m);
-	mpz_set_ui(rop, 1);
-	//mpz_set_ui(y, 0); // it's implied during init
-	
-	while (mpz_cmp_ui(a, 1) > 0){ // a>1
-	  mpz_tdiv_q(q, a, m);
-	  //q = a / m;
-	  mpz_set(t, m);
-	  //t = m;
-	  mpz_tdiv_r(m, a, m);
-	  //m = a % m;
-	  mpz_set(a, t);
-	  //a = t;
-	  mpz_set(t, y);
-	  //t = y;
-	  mpz_mul(y, q, y);
-	  //y = q * y;
-	  mpz_sub(y, rop, y);
-	  //y = rop - y;
-	  mpz_set(rop, t);
-	  //x = t; 
-	} 
-	if (mpz_sgn(rop) < 0) // x<0
-	  mpz_add(rop, rop, m0);
-	  //rop += m0;
-	mpz_clear(a);
-	mpz_clear(m0);
-	mpz_clear(y);
-	mpz_clear(q);
-	mpz_clear(t);
-      }
-  
-      static inline void unzip(mpz_t rop, std::string input){
-	std::string dec = UTIL::base64_decode(input);
-	mpz_import(rop, dec.length(), 1, 1, 1, 0, dec.c_str());
       }
 
       inline void decode(mpz_t rop){
@@ -346,7 +303,7 @@ namespace RSAES{
       in[0] ^= rcon(i);
     }
 
-    static void addRoundKey(unsigned char * in, std::array<unsigned char, 16> key){
+    static void addRoundKey(unsigned char * in, std::array<unsigned char, 16> const& key){
       for(unsigned char i=0; i<16; ++i)
 	  in[i]^=key[i];
     }
@@ -506,7 +463,7 @@ namespace RSAES{
       unmixColumn(in+3*4);
     }
 
-    static std::vector<unsigned char> expand_key(std::vector<unsigned char> in){ // N bit key
+    static std::vector<unsigned char> expand_key(std::vector<unsigned char> const& in){ // N bit key
       size_t base_size = in.size(), size_e = base_size*4+112, c = base_size;
       std::vector<unsigned char> out;
       out.resize(base_size*4+115);
@@ -532,7 +489,7 @@ namespace RSAES{
       }
       return out; 
     }
-
+    
     class AESkey{
     private:
       unsigned int idx;
@@ -540,7 +497,7 @@ namespace RSAES{
     public:
       size_t base;
       std::vector<unsigned char> expanded_key;
-      AESkey(std::vector<unsigned char> in) : idx(0), mode(true){
+      AESkey(std::vector<unsigned char> const& in) : idx(0), mode(true){
 	base = in.size();
 	expanded_key = expand_key(in);
       }
@@ -560,7 +517,8 @@ namespace RSAES{
 	unsigned short *ptr = (unsigned short *)expanded_key.data();
 	size_t size = expanded_key.size()/2;
 	for(size_t i=0; i<size; ++i, ++ptr)
-	  *ptr = static_cast<unsigned short>(UTIL::dist_short(UTIL::mt));
+	  //*ptr = static_cast<unsigned short>(UTIL::dist_short(UTIL::mt));
+	  *ptr = 0; // TODO: find a faster way of filling with random data
 	idx = 0;
 	mode = true;
 	base = 0;
@@ -584,7 +542,7 @@ namespace RSAES{
       }
     };
 
-    static void small_encrypt(unsigned char * in, AESkey expanded_key){
+    void small_encrypt(unsigned char * in, AESkey & expanded_key){
       size_t N = expanded_key.base;
       expanded_key.setStart();
       addRoundKey(in, expanded_key.getRoundKey(true));
@@ -598,7 +556,7 @@ namespace RSAES{
       shiftrows(in);
       addRoundKey(in, expanded_key.getRoundKey(false));
     }
-    static void small_decrypt(unsigned char * in, AESkey expanded_key){
+    void small_decrypt(unsigned char * in, AESkey & expanded_key){
       size_t N = expanded_key.base;
       expanded_key.setEnd();
     
@@ -615,7 +573,7 @@ namespace RSAES{
       addRoundKey(in, expanded_key.getRoundKey(false));
     }
 
-    static std::string big_encrypt(std::string input, AESkey expanded_key){ // returns as base64
+    std::string big_encrypt(std::string input, AESkey & expanded_key){ // returns as base64
       size_t size_s = input.length(); // size before padding
       if(size_s==0)
 	return "";
@@ -629,19 +587,22 @@ namespace RSAES{
       }
       
       unsigned char * c = (unsigned char*)input.data();
-      for(size_t i=0; i<size_p; i+=16)
-	small_encrypt(c+i, expanded_key); // This is so shady
+      
+      for(size_t i=0; i<size_p/16; i++)
+	small_encrypt(c+i*16, expanded_key);
       
       return UTIL::base64_encode((const unsigned char*)input.c_str(), size_p);
     }
 
-    static std::string big_decrypt(std::string input, AESkey expanded_key){ // returns as string
+    std::string big_decrypt(std::string input, AESkey & expanded_key){ // returns as string
       input = UTIL::base64_decode(input);
       size_t size_s = input.length();
       
       unsigned char * c = (unsigned char*)input.c_str();
-      for(size_t i=0; i<size_s; i+=16)
-	small_decrypt(c+i, expanded_key);
+
+      for(size_t i=0; i<size_s/16; i++)
+	small_decrypt(c+i*16, expanded_key); // no, multithreading does not make this faster
+
       input.resize(strlen(input.c_str())); // makes string comparisons shut up
       return input;
     }
@@ -660,7 +621,7 @@ namespace RSAES{
       gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
       rsaCore = new RSA::RSAmanager(RSAbits);
     }
-    EncryptionManager(std::string key): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're recieving the public key and generating a pass for AES
+    EncryptionManager(std::string const& key): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're recieving the public key and generating a pass for AES
       gmp_randinit_default(r);
       gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
       RSA::unpackKey(&unpacked_key, key);
@@ -670,7 +631,7 @@ namespace RSAES{
       //generate random pass
       AES_key = new AES::AESkey(AESbits);
     }
-    EncryptionManager(std::string key, size_t AESbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // specify AES size
+    EncryptionManager(std::string const& key, size_t AESbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // specify AES size
       gmp_randinit_default(r);
       gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
       RSA::unpackKey(&unpacked_key, key);
@@ -732,13 +693,13 @@ namespace RSAES{
       rsaCore = nullptr;
     }
 
-    std::string encrypt(std::string input){
+    std::string encrypt(std::string const& input){
       if(AES_key==nullptr)
 	throw std::runtime_error("Object not properly initialized");
       return AES::big_encrypt(input, *AES_key);
     }
 
-    std::string decrypt(std::string input){
+    std::string decrypt(std::string const& input){
       if(AES_key==nullptr)
 	throw std::runtime_error("Object not properly initialized");
       return AES::big_decrypt(input, *AES_key);

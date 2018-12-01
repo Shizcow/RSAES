@@ -21,7 +21,14 @@ debug:
 	$(eval CXX := $(if $(CXX),$(CXX),"g++"))
 	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" RSAES.hpp),-lgmp,))
 
-	$(CXX) $(GMP_H) $(CXXFLAGS) tests_and_examples.cpp && valgrind ./a.out
+	$(CXX) $(GMP_H) $(CXXFLAGS) -g tests_and_examples.cpp && valgrind ./a.out
+
+time:
+	$(eval CXX := $(if $(CXX),$(CXX),"g++"))
+	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" RSAES.hpp),-lgmp,))
+
+	$(CXX) $(GMP_H) $(CXXFLAGS) tests_and_examples.cpp && time ./a.out
+
 
 
 
