@@ -82,17 +82,29 @@ std::string test_high_level(){
     std::cout << msg << std::endl << std::endl;
     if(msg!=msg_s)
       throw std::runtime_error("Messages aren't same");
-  
+
+    std::cout << "Pack up both objects as if we're saving data for a later session" << std::endl << std::endl;
+    std::string Bob_pack = Bob.pack();
+    std::string Allice_pack = Allice.pack();
+    Bob.destroy();
+    Allice.destroy();
+    std::cout << "For reference, here's the packed strings:" << std::endl << Bob_pack << std::endl << Allice_pack << std::endl << std::endl;
+
+    std::cout << "Unpack the managers for further use" << std::endl << std::endl;
+    RSAES::EncryptionManager Bob2, Allice2;
+    Bob2.unpack(Bob_pack);
+    Allice2.unpack(Allice_pack);
+    
     std::cout << "Now let's go the other way. Encrypt with manager 2:" << std::endl;
     msg_s = word_bank[dist_50(RSAES::UTIL::mt)];
     words = dist_50(RSAES::UTIL::mt);
     for(int i=0; i<words; ++i)
       (msg_s+=' ')+=word_bank[dist_50(RSAES::UTIL::mt)];
-    msg = Allice.encrypt(msg_s);
+    msg = Allice2.encrypt(msg_s);
     std::cout << msg << std::endl << std::endl;
 
     std::cout << "And decrypt with manager 1:" << std::endl;
-    msg = Bob.decrypt(msg);
+    msg = Bob2.decrypt(msg);
     std::cout << msg << std::endl << std::endl;
     if(msg!=msg_s)
       throw std::runtime_error("Messages aren't same");

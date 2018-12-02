@@ -477,9 +477,9 @@ namespace RSAES{
 	if(c%base_size==0)
 	  schedule_core(t,i++);
 
-	else if(c%base_size%16==0)
+	else if(!(c%base_size%16))
 	  for(size_t j = 16; j<base_size; j*=2)
-	    if(c%j==0)
+	    if(!(c%j))
 	      for(a = 0; a < 4; a++) 
 		t[a] = sbox(t[a]);
       
@@ -539,6 +539,9 @@ namespace RSAES{
       inline void setEnd(){
 	idx=static_cast<unsigned int>(log2(base)*2)+2;
 	mode=false;
+      }
+      inline std::string pack(){
+	return UTIL::base64_encode((unsigned char const*) expanded_key.data(), base);
       }
     };
 
@@ -610,12 +613,16 @@ namespace RSAES{
   
   class EncryptionManager{
   private:
-    gmp_randstate_t r;
+    gmp_randstate_t r; //TODO: turn this into a pointer
     RSA::RSAmanager* rsaCore; // I use pointers for a tighter control of lifetime
     std::pair<mpz_t,mpz_t> *unpacked_key;
     AES::AESkey* AES_key;
     
   public:
+    EncryptionManager() :  rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){
+      gmp_randinit_default(r);
+      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
+    }; // create an empty object just for unpacking
     EncryptionManager(unsigned int RSAbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're sending out the public key
       gmp_randinit_default(r);
       gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
@@ -638,7 +645,7 @@ namespace RSAES{
       AES_key = new AES::AESkey(AESbits);
     }
 
-    ~EncryptionManager(){
+    void __destroy(){
       if(rsaCore!=nullptr){
 	delete rsaCore;
 	rsaCore=nullptr;
@@ -658,6 +665,16 @@ namespace RSAES{
       gmp_randclear(r);
     }
 
+    ~EncryptionManager(){
+      __destroy();
+    }
+
+    void destroy(){
+      __destroy();
+      gmp_randinit_default(r);
+      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
+    }
+
     std::string getPublicKey(){
       if(rsaCore==nullptr)
 	throw std::runtime_error("This object doesn't have a core attached");
@@ -668,10 +685,8 @@ namespace RSAES{
       if(AES_key==nullptr)
 	throw std::runtime_error("This object hasn't been initilized correctly");
       
-      auto p = AES_key->expanded_key.begin();
-      std::vector<unsigned char> exp(p, p+AES_key->base); // send the un-expanded key so that we need less data to send
-      
-      std::string AES_string(exp.begin(), exp.end());
+      char *p = (char*) AES_key->expanded_key.data();
+      std::string AES_string(p, p+AES_key->base); // send the un-expanded key so that we need less data to send
       
       std::string ret = RSA::encrypt(AES_string, unpacked_key);
       mpz_urandomb(unpacked_key->first, r, mpz_sizeinbase(unpacked_key->first, 32)); // scramble ram just in case
@@ -703,6 +718,17 @@ namespace RSAES{
       if(AES_key==nullptr)
 	throw std::runtime_error("Object not properly initialized");
       return AES::big_decrypt(input, *AES_key);
+    }
+
+    inline std::string pack(){ // Packs up the entire class as a string to be saved on disk or something similar. Only for fully initilized classes
+      return AES_key->pack(); // we can squeeze in these optimizations here because we don't need to encrypt it with RSA
+    }
+
+    void unpack(std::string KeyResponse){
+      KeyResponse = UTIL::base64_decode(KeyResponse);
+      std::vector<unsigned char> exp(KeyResponse.size());
+      memcpy(exp.data(), KeyResponse.data(), KeyResponse.size()); // This gets ndk to shut up
+      AES_key = new AES::AESkey(exp);
     }
   };
 }
