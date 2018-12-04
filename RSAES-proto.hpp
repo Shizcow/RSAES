@@ -9,7 +9,6 @@
 #include <random>    //     it'scrypto afterall
 #include <algorithm> //     copy_n (makes cloning vectors faster)
 #include <cstring>   //     memcpy
-#include <thread>    //     multithreading
 
 namespace RSAES{
 
