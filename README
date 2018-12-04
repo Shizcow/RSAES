@@ -220,36 +220,36 @@ used all over in the library. They are as follows:
 Global objects are as such so that they only needs to be initilized once,
 saving on memory usage and improving speed.
 
-static std::random_device rd;
+std::random_device rd;
        An std::random_device used for better randomization than rand().
-static std::mt19937 mt(rd());
+std::mt19937 mt(rd());
        The Mersenne Twister algorithm, as initilized by our random device.
        Used for extracting random numbers from the distribution objects.
-static std::uniform_int_distribution<unsigned short> dist_char(0, 255);
+std::uniform_int_distribution<unsigned short> dist_char(0, 255);
        Used for creating padding at the end of messages.
-static std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
+std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
        Used for creating an AES key. This is different because bugs.
-static std::uniform_int_distribution<unsigned long long int>
+std::uniform_int_distribution<unsigned long long int>
        dist_short(0, std::numeric_limits<unsigned short>::max());
        Used for clearing vectors, as it's much faster to use shorts when
        possible.
-static std::uniform_int_distribution<unsigned long>
+std::uniform_int_distribution<unsigned long>
        dist_r(0, std::numeric_limits<unsigned long>::max());
        Used for generic randomness and seeding the GMP random structs.
-static const char base64_chars[64];
+const char base64_chars[64];
        Used as a lookup table for base64 en/decoding.
 
 -->FUNCTIONS
 
-static inline char find_as_base64(char tofind)
+inline char find_as_base64(char tofind)
        Used to reverse the lookup base64_chars lookup table during decodng.
 
-static std::string base64_encode(unsigned char const* bytes_to_encode,
+std::string base64_encode(unsigned char const* bytes_to_encode,
        		   	         size_t in_len)
        Used to base64 encode some bytes. It doesn't take a string because
        that's how I found it on the internet.
 
-static std::string base64_decode(std::string const& encoded_string)
+std::string base64_decode(std::string const& encoded_string)
        Used to decode a base64 string. The return value is a string whos
        bytes are not all valid ascii.
 
@@ -261,13 +261,13 @@ of RSAES. It contains various functions and a single class (RSAmanager).
 
 -->FUNCTIONS
 
-static std::string packKey(std::pair<mpz_t,mpz_t> key)
+std::string packKey(std::pair<mpz_t,mpz_t> key)
        Packs the public `key` and returns valid ascii.
 
-static void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string key)
+void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string key)
        Unpacks the public `key` into `rop`.
 
-static std::string encrypt(std::string input, std::pair<mpz_t,mpz_t> *key)
+std::string encrypt(std::string input, std::pair<mpz_t,mpz_t> *key)
        The full RSA encryption algorithm. Encrypts `input` using the public
        `key`.
 
@@ -314,24 +314,24 @@ class (AESkey). Only the important ones are shown.
 
 -->FUNCTIONS
 
-static std::vector<unsigned char> expand_key(std::vector<unsigned char> in)
+std::vector<unsigned char> expand_key(std::vector<unsigned char> in)
        Takes an N-bit key, where N is restricted to 128, 256, or any power
        of two thereafter. Returns an expanded key. This is the KeyExpansion
        step in the reference AES algorithm.
 
-static unsigned char small_encrypt(unsigned char *in, AESkey &expanded_key)
+unsigned char small_encrypt(unsigned char *in, AESkey &expanded_key)
        Fully encrypts a 4x4 bytetable. This is the entire reference AES
        algorithm.
 
-static unsigned char small_decrypt(unsigned char *in, AESkey &expanded_key)
+unsigned char small_decrypt(unsigned char *in, AESkey &expanded_key)
        Fully decrypts a 4x4 bytetable. This is the reference AES decryption
        algorithm.
 
-static std::string big_encrypt(std::string input, AESkey &expanded_key)
+std::string big_encrypt(std::string input, AESkey &expanded_key)
        Takes a whole string, padds it, encrypts each table, then wraps
        it up in base64 and returns a passable, encrypted string.
 
-static std::string big_decrypt(std::string input, AESkey &expanded_key)
+std::string big_decrypt(std::string input, AESkey &expanded_key)
        Takes a whole string, decodes it from base64, decrypts it,
        un-padds it and returns the clean string.
 

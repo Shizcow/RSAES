@@ -13,17 +13,17 @@
 namespace RSAES{
 
   namespace UTIL{
-    static std::random_device rd;
-    static std::mt19937 mt(rd());
-    static std::uniform_int_distribution<unsigned short> dist_char(0, 255);
-    static std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
-    static std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_int_distribution<unsigned short> dist_char(0, 255);
+    std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
+    std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
   
-    static const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+    const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
 					  'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
 					  '.','/','0','1','2','3','4','5','6','7','8','9'};
 
-    static inline char find_as_base64(char tofind){
+    inline char find_as_base64(char tofind){
       return static_cast<char>(
 			       (tofind >= 97) ? // a-z
 			       tofind-71
@@ -32,7 +32,7 @@ namespace RSAES{
 			       :tofind+6);     // .-9
     }
 
-    static std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len){ // Credit to René Nyffenegger, optimized myself
+    std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len){ // Credit to René Nyffenegger, optimized myself
       std::string ret;
       unsigned char i=0, j=0;
       unsigned char char_array_3[7]; // Apparently this removes one syscall at the cost of using a little more ram
@@ -66,7 +66,7 @@ namespace RSAES{
       return ret;
     }
 
-    static std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger, optimized myself
+    std::string base64_decode(std::string const& encoded_string) { // Credit to René Nyffenegger, optimized myself
       std::string ret;
       unsigned long in_len = encoded_string.size(), i = 0, j = 0, in_ = 0;
       unsigned char char_array_3[7]; // See above
@@ -101,7 +101,7 @@ namespace RSAES{
     }
   }
   namespace RSA{
-    static std::string packKey(std::pair<mpz_t,mpz_t> const& key){
+    std::string packKey(std::pair<mpz_t,mpz_t> const& key){
       size_t padding = mpz_sizeinbase(key.first, 2); // bits
       padding = padding/8+(padding%8>0?1:0);
       unsigned char *str = (unsigned char*)malloc(padding);
@@ -119,7 +119,7 @@ namespace RSAES{
       return first+'_'+second;
     };
 
-    static void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string const& key){
+    void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string const& key){
       std::string first = key.substr(0, key.find('_'));
       std::string second = key.substr(first.length()+1, key.length());
       first = UTIL::base64_decode(first);
@@ -132,7 +132,7 @@ namespace RSAES{
       mpz_import((*rop)->second, second.length(), 1, 1, 1, 0, second.c_str());
     }
   
-    static std::string encrypt(std::string const& input, std::pair<mpz_t,mpz_t> *key){
+    std::string encrypt(std::string const& input, std::pair<mpz_t,mpz_t> *key){
       size_t padding = mpz_sizeinbase(key->first, 2)/8-1; // pad message
       mpz_t ret;
       mpz_init(ret);
@@ -154,7 +154,7 @@ namespace RSAES{
       return ret_str;
     }
 
-    static inline void unzip(mpz_t rop, std::string const& input){
+    inline void unzip(mpz_t rop, std::string const& input){
       std::string dec = UTIL::base64_decode(input);
       mpz_import(rop, dec.length(), 1, 1, 1, 0, dec.c_str());
     }
@@ -233,7 +233,7 @@ namespace RSAES{
   }
 
   namespace AES{
-    static void rotate(unsigned char * word){ // shifts array one to the left
+    void rotate(unsigned char * word){ // shifts array one to the left
       unsigned char tmp = word[0];
       word[0] = word[1];
       word[1] = word[2];
@@ -242,7 +242,7 @@ namespace RSAES{
     }
   
     /* Calculate the rcon used in key expansion */
-    static unsigned char rcon(unsigned char in) {
+    unsigned char rcon(unsigned char in) {
       if(in == 0)  
 	return 0; 
       unsigned char c=1;
@@ -252,7 +252,7 @@ namespace RSAES{
       return c;
     }
 
-    static unsigned char stable[256]     = {99, 124, 119, 123, 242, 107, 111, 197, 48, 1, 103, 43, 254, 215, 171, 118, 
+    unsigned char stable[256]     = {99, 124, 119, 123, 242, 107, 111, 197, 48, 1, 103, 43, 254, 215, 171, 118, 
 					    202, 130, 201, 125, 250, 89, 71, 240, 173, 212, 162, 175, 156, 164, 114, 192, 
 					    183, 253, 147, 38, 54, 63, 247, 204, 52, 165, 229, 241, 113, 216, 49, 21, 
 					    4, 199, 35, 195, 24, 150, 5, 154, 7, 18, 128, 226, 235, 39, 178, 117, 
@@ -269,7 +269,7 @@ namespace RSAES{
 					    225, 248, 152, 17, 105, 217, 142, 148, 155, 30, 135, 233, 206, 85, 40, 223, 
 					    140, 161, 137, 13, 191, 230, 66, 104, 65, 153, 45, 15, 176, 84, 187, 22};
 
-    static unsigned char stable_inv[256] = {82, 9, 106, 213, 48, 54, 165, 56, 191, 64, 163, 158, 129, 243, 215, 251, 
+    unsigned char stable_inv[256] = {82, 9, 106, 213, 48, 54, 165, 56, 191, 64, 163, 158, 129, 243, 215, 251, 
 					    124, 227, 57, 130, 155, 47, 255, 135, 52, 142, 67, 68, 196, 222, 233, 203, 
 					    84, 123, 148, 50, 166, 194, 35, 61, 238, 76, 149, 11, 66, 250, 195, 78, 
 					    8, 46, 161, 102, 40, 217, 36, 178, 118, 91, 162, 73, 109, 139, 209, 37, 
@@ -286,15 +286,15 @@ namespace RSAES{
 					    160, 224, 59, 77, 174, 42, 245, 176, 200, 235, 187, 60, 131, 83, 153, 97, 
 					    23, 43, 4, 126, 186, 119, 214, 38, 225, 105, 20, 99, 85, 33, 12, 125};
   
-    static inline unsigned char sbox(unsigned char in){
+    inline unsigned char sbox(unsigned char in){
       return stable[in];
     }
 		   
-    static inline unsigned char sbox_inv(unsigned char in){
+    inline unsigned char sbox_inv(unsigned char in){
       return stable_inv[in];
     }
 
-    static void schedule_core(unsigned char * in, unsigned char i){
+    void schedule_core(unsigned char * in, unsigned char i){
       unsigned char a;
       rotate(in);
       for(a = 0; a < 4; a++) 
@@ -302,12 +302,12 @@ namespace RSAES{
       in[0] ^= rcon(i);
     }
 
-    static void addRoundKey(unsigned char * in, std::array<unsigned char, 16> const& key){
+    void addRoundKey(unsigned char * in, std::array<unsigned char, 16> const& key){
       for(unsigned char i=0; i<16; ++i)
 	  in[i]^=key[i];
     }
 
-    static void shiftrows(unsigned char * rows){ // reference for slight speed boost
+    void shiftrows(unsigned char * rows){ // reference for slight speed boost
       unsigned char tmp = rows[1*4+0];
       rows[1*4+0] = rows[1*4+1];
       rows[1*4+1] = rows[1*4+2];
@@ -327,7 +327,7 @@ namespace RSAES{
       rows[3*4+2] = rows[3*4+1];
       rows[3*4+1] = tmp; // shift the fourth row thrice
     }
-    static void unshiftrows(unsigned char * rows){ // reference for slight speed boost
+    void unshiftrows(unsigned char * rows){ // reference for slight speed boost
       unsigned char tmp = rows[4*1+0];
       rows[1*4+0] = rows[1*4+3];
       rows[1*4+3] = rows[1*4+2];
@@ -349,17 +349,17 @@ namespace RSAES{
     }
 
   
-    static void subBytes_encrypt(unsigned char * rows){
+    void subBytes_encrypt(unsigned char * rows){
       for(int i=0; i<16; ++i)
 	*(rows+i) = sbox(*(rows+i));
     }
   
-    static void subBytes_decrypt(unsigned char * rows){
+    void subBytes_decrypt(unsigned char * rows){
       for(int i=0; i<16; ++i)
 	*(rows+i) = sbox_inv(*(rows+i));
     }
 
-    static unsigned char ltable[256] = {0x00, 0xff, 0xc8, 0x08, 0x91, 0x10, 0xd0, 0x36, 
+    unsigned char ltable[256] = {0x00, 0xff, 0xc8, 0x08, 0x91, 0x10, 0xd0, 0x36, 
 					0x5a, 0x3e, 0xd8, 0x43, 0x99, 0x77, 0xfe, 0x18, 
 					0x23, 0x20, 0x07, 0x70, 0xa1, 0x6c, 0x0c, 0x7f, 
 					0x62, 0x8b, 0x40, 0x46, 0xc7, 0x4b, 0xe0, 0x0e, 
@@ -392,7 +392,7 @@ namespace RSAES{
 					0x3b, 0x52, 0x6f, 0xf6, 0x2e, 0x89, 0xf7, 0xc0, 
 					0x68, 0x1b, 0x64, 0x04, 0x06, 0xbf, 0x83, 0x38 };
 
-    static unsigned char atable[256] = {0x01, 0xe5, 0x4c, 0xb5, 0xfb, 0x9f, 0xfc, 0x12, 
+    unsigned char atable[256] = {0x01, 0xe5, 0x4c, 0xb5, 0xfb, 0x9f, 0xfc, 0x12, 
 					0x03, 0x34, 0xd4, 0xc4, 0x16, 0xba, 0x1f, 0x36, 
 					0x05, 0x5c, 0x67, 0x57, 0x3a, 0xd5, 0x21, 0x5a, 
 					0x0f, 0xe4, 0xa9, 0xf9, 0x4e, 0x64, 0x63, 0xee, 
@@ -425,11 +425,11 @@ namespace RSAES{
 					0x66, 0xb2, 0x76, 0x60, 0xda, 0xc5, 0xf3, 0xf6, 
 					0xaa, 0xcd, 0x9a, 0xa0, 0x75, 0x54, 0x0e, 0x01 };
 
-    static inline unsigned char gmul(unsigned char a, unsigned char b) {
+    inline unsigned char gmul(unsigned char a, unsigned char b) {
       return static_cast<unsigned char>((!a || !b) ? 0 : atable[(ltable[a] + ltable[b]) % 255]);
     }
 
-    static void mixColumn(unsigned char *r) {
+    void mixColumn(unsigned char *r) {
       unsigned char a[4], b[4], c;
       for (c=0; c<4; c++)
 	(b[c] = (a[c]=r[c]) << 1) ^= 0x1B & (unsigned char)((signed char)r[c] >> 7);
@@ -439,7 +439,7 @@ namespace RSAES{
       r[3] = b[3] ^ a[2] ^ a[1] ^ b[0] ^ a[0];
     }
 
-    static void unmixColumn(unsigned char * r) { // this one can't be optimised like mixColumn because the numbers are much larger
+    void unmixColumn(unsigned char * r) { // this one can't be optimised like mixColumn because the numbers are much larger
       unsigned char a[4];
       memcpy(a, r , 4);
       r[0] = gmul(14,a[0])^gmul(11,a[1])^gmul(13,a[2])^gmul(9,a[3]);
@@ -448,21 +448,21 @@ namespace RSAES{
       r[3] = gmul(11,a[0])^gmul(13,a[1])^gmul(9,a[2])^gmul(14,a[3]);
     }
 
-    static void mixColumns(unsigned char *in){
+    void mixColumns(unsigned char *in){
       mixColumn(in);
       mixColumn(in+1*4);
       mixColumn(in+2*4);
       mixColumn(in+3*4);
     }
 
-    static void unmixColumns(unsigned char *in){
+    void unmixColumns(unsigned char *in){
       unmixColumn(in);
       unmixColumn(in+1*4);
       unmixColumn(in+2*4);
       unmixColumn(in+3*4);
     }
 
-    static std::vector<unsigned char> expand_key(std::vector<unsigned char> const& in){ // N bit key
+    std::vector<unsigned char> expand_key(std::vector<unsigned char> const& in){ // N bit key
       size_t base_size = in.size(), size_e = base_size*4+112, c = base_size;
       std::vector<unsigned char> out;
       out.resize(base_size*4+115);
