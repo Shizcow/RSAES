@@ -16,7 +16,7 @@ namespace RSAES{
     std::random_device rd;
     std::mt19937 mt(rd());
     std::uniform_int_distribution<unsigned short> dist_char(0, 255);
-    std::uniform_int_distribution<unsigned short> dist_char_1(1, 255);
+    std::uniform_int_distribution<unsigned short> dist_short(0, std::numeric_limits<unsigned short>::max());
     std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
   
     const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
@@ -101,6 +101,41 @@ namespace RSAES{
     }
   }
   namespace RSA{
+    
+    inline void memmove_forward(unsigned char* dest, unsigned char* source, size_t bytes){
+      //Because memmove behavior is undefined on overlapping regions, we define a custom function for portability
+      while(bytes--)
+	*(dest+bytes)=*(source+bytes);
+    }
+    inline void memmove_backward(unsigned char* dest, unsigned char* source, size_t bytes){
+      //Because memmove behavior is undefined on overlapping regions, we define a custom function for portability
+      for(size_t i=0; i<bytes; ++i)
+	*(dest+i)=*(source+i);
+    }
+
+    void serialize_string(std::string &msg){ // Rearrange a string with size information at the front, so that null characters don't cause a problem
+      size_t msg_t = msg.size();
+
+      unsigned char bytes_t = sizeof(size_t); // in case we're on a 32bit system
+
+      msg.resize(1+bytes_t+msg_t);
+
+      unsigned char * msg_bytes = (unsigned char *)msg.data();
+      memmove_forward(msg_bytes+1+sizeof(unsigned char)*bytes_t, msg_bytes, msg_t);
+      *msg_bytes = bytes_t;
+      memcpy(msg_bytes+1, (char*)(&msg_t), bytes_t);
+    }
+
+    void unserialize_string(std::string &msg){
+      unsigned char * msg_bytes = (unsigned char *)msg.data();
+      unsigned char bytes_t = msg_bytes[0];
+      size_t msg_t;
+      memcpy(&msg_t, msg_bytes+1, bytes_t);
+
+      memmove_backward(msg_bytes, msg_bytes+1+sizeof(unsigned char)*bytes_t, msg_t);
+      msg.resize(msg_t);
+    }
+    
     std::string packKey(std::pair<mpz_t,mpz_t> const& key){
       size_t padding = mpz_sizeinbase(key.first, 2); // bits
       padding = padding/8+(padding%8>0?1:0);
@@ -132,18 +167,14 @@ namespace RSAES{
       mpz_import((*rop)->second, second.length(), 1, 1, 1, 0, second.c_str());
     }
   
-    std::string encrypt(std::string const& input, std::pair<mpz_t,mpz_t> *key){
-      size_t padding = mpz_sizeinbase(key->first, 2)/8-1; // pad message
+    std::string encrypt(std::string const& __input, std::pair<mpz_t,mpz_t> *key){ // TODO: add padding
+      std::string input(__input);
+      serialize_string(input);
       mpz_t ret;
       mpz_init(ret);
-      if(input.length()>=padding)
-	throw std::invalid_argument("message too large!");
-      std::string rands;
-      for(size_t i=0; i<padding-input.length()-1; ++i)
-	rands+=UTIL::dist_char(UTIL::mt);
 
-      padding = mpz_sizeinbase(key->first, 2)/8-1;
-      mpz_import(ret, padding, 1, 1, 1, 0, (input+static_cast<char>('\0')+rands).c_str()); // convert to num
+      size_t padding = mpz_sizeinbase(key->first, 2)/8-1;
+      mpz_import(ret, padding, 1, 1, 1, 0, input.data()); // convert to num
       mpz_powm(ret, ret, key->second, key->first); // encrypt
       padding = mpz_sizeinbase(ret, 2); // convert to base 64
       unsigned char *str = (unsigned char*)malloc(padding);
@@ -160,10 +191,9 @@ namespace RSAES{
     }
 
     inline std::string fromInt(mpz_t input){
-      char *str = (char*)malloc(1+((mpz_sizeinbase(input, 2)-1)/8));
-      mpz_export(str, nullptr, 1, 1, 1, 0, input);
-      std::string ret(str);
-      free(str);
+      std::string ret;
+      ret.resize(1+((mpz_sizeinbase(input, 2)-1)/8));
+      mpz_export((void*)ret.data(), nullptr, 1, 1, 1, 0, input);
       return ret;
     }
   
@@ -178,6 +208,7 @@ namespace RSAES{
 	decode(tmp);
 	std::string ret = fromInt(tmp);
 	mpz_clear(tmp);
+	unserialize_string(ret);
 	return ret;
       }
 
@@ -509,7 +540,7 @@ namespace RSAES{
 	unsigned short *ptr = reinterpret_cast<unsigned short*>(vec.data()); // I mean, it's faster
 	size_t base_2 = base/2;
 	for(size_t i=0; i<base_2; ++i, ++ptr)
-	  *ptr = UTIL::dist_char_1(UTIL::mt)|(UTIL::dist_char_1(UTIL::mt)<<8); // Why does this break when either of the bytes are zero
+	  *ptr = UTIL::dist_short(UTIL::mt);
 	expanded_key = expand_key(vec);
       }
       ~AESkey(){ // clear ram just in case

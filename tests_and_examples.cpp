@@ -282,7 +282,7 @@ int main(){
   std::cout << "TEST " << (s_gigabit?"PASSED":"FAILED") << std::endl;
   std::cout << "-----------------------" << std::endl;
     
-
+  
   std::cout << std::endl << "TEST RESULTS:" << std::endl;
   std::cout << "-----------------------" << std::endl;
   std::cout << "HIGH LEVEL INTERFACE" << std::endl;
