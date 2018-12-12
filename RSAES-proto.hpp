@@ -1,7 +1,8 @@
 #ifndef __RSAES__
 #define __RSAES__
-
+#include <iostream>
 //will use mini-gmp or gmp.h, whichever specified during make
+#include "SHA256/SHA256.h"
 #include <limits>    //     numerical limits
 #include <string>    //     passing messages in std::string
 #include <vector>    //     big key storage
@@ -170,6 +171,16 @@ namespace RSAES{
     std::string encrypt(std::string const& __input, std::pair<mpz_t,mpz_t> *key){ // TODO: add padding
       std::string input(__input);
       serialize_string(input);
+
+      using namespace std;
+      // starting to do OAEP
+      size_t n = mpz_sizeinbase(key->first, 2);
+      size_t k0 = 1, k1 = 2;
+      
+
+      cout << n << endl;
+
+      
       mpz_t ret;
       mpz_init(ret);
 
