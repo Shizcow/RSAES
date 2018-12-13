@@ -2,7 +2,8 @@
 #define __RSAES__
 #include <iostream>
 //will use mini-gmp or gmp.h, whichever specified during make
-#include "SHA256/SHA256.h"
+#include "SHA256/sha256.h"
+#include "SHA256/mgf1.h"
 #include <limits>    //     numerical limits
 #include <string>    //     passing messages in std::string
 #include <vector>    //     big key storage
@@ -172,25 +173,89 @@ namespace RSAES{
       std::string input(__input);
       serialize_string(input);
 
-      using namespace std;
-      // starting to do OAEP
-      size_t n = mpz_sizeinbase(key->first, 2);
-      size_t k0 = 1, k1 = 2;
-      
+      {
+	using namespace std;
+	// starting to do OAEP
+	//size_t k0 = 1, k1 = 2;
+	//unsigned char* m = (unsigned char*)input.data();
 
-      cout << n << endl;
+	size_t k = (mpz_sizeinbase(key->first, 2)-1)/8+1;
+	size_t mLen = input.size();
+	size_t hLen = SHA256_DIGEST_LENGTH;
+	if(mLen>k-2*hLen-2)
+	  throw std::runtime_error("Message too long!");
 
-      
+	unsigned char lHash[SHA256_DIGEST_LENGTH];
+	sha256(lHash, "", 0);
+	size_t PS_len = k-mLen-2*hLen-2;
+	unsigned char *PS = (unsigned char*)calloc(sizeof(unsigned char), PS_len);
+	
+	unsigned char *DB = (unsigned char*)malloc(sizeof(unsigned char)*(hLen+PS_len+1+mLen));
+	memcpy(DB, lHash, SHA256_DIGEST_LENGTH);
+	memcpy(DB+SHA256_DIGEST_LENGTH, PS, PS_len);
+	DB[SHA256_DIGEST_LENGTH+PS_len]=0x01;
+	memcpy(DB+SHA256_DIGEST_LENGTH+PS_len+1, input.data(), mLen);
+
+	unsigned char seed[SHA256_DIGEST_LENGTH];
+	for(int i=0; i<SHA256_DIGEST_LENGTH; ++i)
+	  seed[i] = UTIL::dist_char(UTIL::mt);
+
+	unsigned char *dbMask = (unsigned char*)malloc(sizeof(unsigned char)*k-hLen-1);
+	mgf1(dbMask, (const char*)seed, SHA256_DIGEST_LENGTH, k-hLen-1);
+
+	unsigned char *maskedDB = (unsigned char*)malloc(sizeof(unsigned char)*k-hLen-1);
+	for(int i=0; i<k-hLen-1; ++i)
+	  maskedDB[i] = DB[i]^dbMask[i];
+	
+	unsigned char *seedMask = (unsigned char*)malloc(sizeof(unsigned char)*hLen);
+	mgf1(seedMask, (const char*)maskedDB, k-hLen-1, hLen);
+
+	unsigned char *maskedSeed = (unsigned char*)malloc(sizeof(unsigned char)*hLen);
+	for(int i=0; i<hLen; ++i)
+	  maskedSeed[i] = seed[i]^seedMask[i];
+
+	unsigned char *EM = (unsigned char*)malloc(sizeof(unsigned char)*(1+hLen+(k-hLen-1)));
+	EM[0] = 0;
+	memcpy(EM+1, maskedSeed, hLen);
+	memcpy(EM+1+hLen, maskedDB, (k-hLen-1));
+
+	mpz_t m;
+	mpz_init(m);
+	mpz_import(m, 1+hLen+(k-hLen-1), 1, 1, 1, 0, EM);
+
+	mpz_t c;
+	mpz_init(c);
+	
+	mpz_powm(c, m, key->second, key->first); // encrypt
+	
+	unsigned char* C = (unsigned char*)malloc(sizeof(unsigned char*)*k);
+	
+	mpz_export(C, nullptr, 1, 1, 1, 0, c);
+	
+	std::string ret_str = UTIL::base64_encode(C, k);
+	
+	free(PS);
+	free(DB);
+	free(dbMask);
+	free(maskedDB);
+	free(seedMask);
+	free(maskedSeed);
+	free(EM);
+	mpz_clear(m);
+	mpz_clear(c);
+
+	return ret_str;
+      }
       mpz_t ret;
       mpz_init(ret);
 
       size_t padding = mpz_sizeinbase(key->first, 2)/8-1;
       mpz_import(ret, padding, 1, 1, 1, 0, input.data()); // convert to num
       mpz_powm(ret, ret, key->second, key->first); // encrypt
-      padding = mpz_sizeinbase(ret, 2); // convert to base 64
+      padding = mpz_sizeinbase(ret, 2);
       unsigned char *str = (unsigned char*)malloc(padding);
       mpz_export(str, nullptr, 1, 1, 1, 0, ret);
-      std::string ret_str = UTIL::base64_encode(str, padding/8+(padding%8>0?1:0));
+      std::string ret_str = UTIL::base64_encode(str, padding/8+(padding%8>0?1:0)); // convert to base 64
       free(str);
       mpz_clear(ret);
       return ret_str;
