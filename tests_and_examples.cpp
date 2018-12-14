@@ -126,9 +126,7 @@ std::string test_low_level_RSA(){
     int words = dist_50(RSAES::UTIL::mt)/2;
     for(int i=0; i<words; ++i)
       (msg_s+=' ')+=word_bank[dist_50(RSAES::UTIL::mt)];
-    std::pair<mpz_t,mpz_t> *recvKey = new std::pair<mpz_t,mpz_t>;
-    mpz_init(recvKey->first);
-    mpz_init(recvKey->second);
+    std::pair<mpz_t,mpz_t> *recvKey;
     RSAES::RSA::unpackKey(&recvKey, keyStr);
     std::string msg = RSAES::RSA::encrypt(msg_s, recvKey);
     mpz_clear(recvKey->first);
@@ -222,7 +220,7 @@ int main(){
   std::cout << "TESTING HIGH LEVEL INTERFACE" << std::endl;
 
   unsigned int f_high=0, s_high=0;
-  for(unsigned int done=0; done<10; ++done){
+  for(unsigned int done=0; done<1; ++done){
     std::string result = test_high_level();
     if(result=="")
       ++s_high;
@@ -240,7 +238,7 @@ int main(){
   std::cout << "TESTING LOW LEVEL INTERFACE - RSA" << std::endl;
 
   unsigned int f_rsa=0, s_rsa=0;
-  for(unsigned int done=0; done<10; ++done){
+  for(unsigned int done=0; done<1; ++done){
     std::string result = test_low_level_RSA();
     if(result=="")
       ++s_rsa;
@@ -258,7 +256,7 @@ int main(){
   std::cout << "TESTING LOW LEVEL INTERFACE - AES" << std::endl;
 
   unsigned int f_aes=0, s_aes=0;
-  for(unsigned int done=0; done<10; ++done){
+  for(unsigned int done=0; done<1; ++done){
     std::string result = test_low_level_AES();
     if(result=="")
       ++s_aes;
