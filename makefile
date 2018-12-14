@@ -15,7 +15,7 @@ test:
 	$(eval CXX := $(if $(CXX),$(CXX),"g++"))
 	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" RSAES.hpp),-lgmp,))
 
-	$(CXX) $(GMP_H) $(CXXFLAGS) tests_and_examples.cpp && ./a.out
+	$(CXX) $(GMP_H) $(CXXFLAGS) tests_and_examples.cpp -Wall -O2 && ./a.out
 
 debug:
 	$(eval CXX := $(if $(CXX),$(CXX),"g++"))

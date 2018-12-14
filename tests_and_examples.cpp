@@ -3,56 +3,56 @@
 #include <stdexcept> //     throwing errors in tests
 
 std::string word_bank[50] = {
-			      "pleasant",
-			      "foot",
-			      "elfin",
-			      "calendar",
-			      "settle",
-			      "size",
-			      "trip",
-			      "float",
-			      "sand",
-			      "good",
-			      "stain",
-			      "trite",
-			      "colorful",
-			      "street",
-			      "dusty",
-			      "range",
-			      "blot",
-			      "direction",
-			      "cent",
-			      "white",
-			      "angry",
-			      "sack",
-			      "wave",
-			      "weather",
-			      "stitch",
-			      "ritzy",
-			      "scintill",
-			      "deliver",
-			      "synonymo",
-			      "quicksan",
-			      "cub",
-			      "sofa",
-			      "callous",
-			      "disagree",
-			      "dashing",
-			      "daughter",
-			      "jar",
-			      "sniff",
-			      "ear",
-			      "powder",
-			      "wait",
-			      "shame",
-			      "needy",
-			      "dreary",
-			      "x-ray",
-			      "labored",
-			      "can",
-			      "incompet",
-			      "pricey",
-			      "jagged"
+			     "pleasant",
+			     "foot",
+			     "elfin",
+			     "calendar",
+			     "settle",
+			     "size",
+			     "trip",
+			     "float",
+			     "sand",
+			     "good",
+			     "stain",
+			     "trite",
+			     "colorful",
+			     "street",
+			     "dusty",
+			     "range",
+			     "blot",
+			     "direction",
+			     "cent",
+			     "white",
+			     "angry",
+			     "sack",
+			     "wave",
+			     "weather",
+			     "stitch",
+			     "ritzy",
+			     "scintill",
+			     "deliver",
+			     "synonymo",
+			     "quicksan",
+			     "cub",
+			     "sofa",
+			     "callous",
+			     "disagree",
+			     "dashing",
+			     "daughter",
+			     "jar",
+			     "sniff",
+			     "ear",
+			     "powder",
+			     "wait",
+			     "shame",
+			     "needy",
+			     "dreary",
+			     "x-ray",
+			     "labored",
+			     "can",
+			     "incompet",
+			     "pricey",
+			     "jagged"
 };
 std::uniform_int_distribution<unsigned short> dist_50(0, 49);
 
@@ -217,88 +217,105 @@ bool test_gigabit(){
 
 
 int main(){
-  std::cout << "TESTING HIGH LEVEL INTERFACE" << std::endl;
+  bool s_gigabit = true;
+  unsigned int s_aes=0, f_aes=0, f_high=0, s_high=0, f_rsa=0, s_rsa=0;
+  bool
+    test_high = true
+    ,test_rsa = true
+    ,test_aes = true
+    ,test_gig = true
+    ;
 
-  unsigned int f_high=0, s_high=0;
-  for(unsigned int done=0; done<1; ++done){
-    std::string result = test_high_level();
-    if(result=="")
-      ++s_high;
-    else {
-      ++f_high;
-      std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << result << std::endl;
+  if(test_high){
+    std::cout << "TESTING HIGH LEVEL INTERFACE" << std::endl;
+    for(unsigned int done=0; done<10; ++done){
+      std::string result = test_high_level();
+      if(result=="")
+	++s_high;
+      else {
+	++f_high;
+	std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << result << std::endl;
+      }
+      std::cout << "-----------------------" << std::endl;
+      std::cout << "HIGH LEVEL INTERFACE" << std::endl;
+      std::cout << "SUCESSFULL TESTS: " << s_high << std::endl;
+      std::cout << "FAILED TESTS: " << f_high << std::endl;
+      std::cout << "-----------------------" << std::endl;
     }
+  }
+
+  if(test_rsa){
+    std::cout << "TESTING LOW LEVEL INTERFACE - RSA" << std::endl;
+    for(unsigned int done=0; done<10; ++done){
+      std::string result = test_low_level_RSA();
+      if(result=="")
+	++s_rsa;
+      else {
+	++f_rsa;
+	std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << result << std::endl;
+      }
+      std::cout << "-----------------------" << std::endl;
+      std::cout << "LOW LEVEL INTERFACE RSA" << std::endl;
+      std::cout << "SUCESSFULL TESTS: " << s_rsa << std::endl;
+      std::cout << "FAILED TESTS: " << f_rsa << std::endl;
+      std::cout << "-----------------------" << std::endl;
+    }
+  }
+
+  if(test_aes){
+    std::cout << "TESTING LOW LEVEL INTERFACE - AES" << std::endl;
+    for(unsigned int done=0; done<10; ++done){
+      std::string result = test_low_level_AES();
+      if(result=="")
+	++s_aes;
+      else {
+	++f_aes;
+	std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << result << std::endl;
+      }
+      std::cout << "-----------------------" << std::endl;
+      std::cout << "LOW LEVEL INTERFACE AES" << std::endl;
+      std::cout << "SUCESSFULL TESTS: " << s_aes << std::endl;
+      std::cout << "FAILED TESTS: " << f_aes << std::endl;
+      std::cout << "-----------------------" << std::endl;
+    }
+  }
+
+  if(test_gig){
+    std::cout << "TESTING LOW LEVEL INTERFACE - AES AT 1 GIGABIT KEY SIZE" << std::endl;
+    s_gigabit = test_gigabit();
+    if(!s_gigabit)
+      std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << "Messages aren't same - gigabit" << std::endl;
     std::cout << "-----------------------" << std::endl;
+    std::cout << "GIGABIT AES LOW LEVEL  " << std::endl;
+    std::cout << "TEST " << (s_gigabit?"PASSED":"FAILED") << std::endl;
+    std::cout << "-----------------------" << std::endl;
+  }
+  
+  std::cout << std::endl << "TEST RESULTS:" << std::endl;
+  std::cout << "-----------------------" << std::endl;
+  if(test_high){
     std::cout << "HIGH LEVEL INTERFACE" << std::endl;
     std::cout << "SUCESSFULL TESTS: " << s_high << std::endl;
     std::cout << "FAILED TESTS: " << f_high << std::endl;
     std::cout << "-----------------------" << std::endl;
   }
-  
-  std::cout << "TESTING LOW LEVEL INTERFACE - RSA" << std::endl;
-
-  unsigned int f_rsa=0, s_rsa=0;
-  for(unsigned int done=0; done<1; ++done){
-    std::string result = test_low_level_RSA();
-    if(result=="")
-      ++s_rsa;
-    else {
-      ++f_rsa;
-      std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << result << std::endl;
-    }
-    std::cout << "-----------------------" << std::endl;
+  if(test_rsa){
     std::cout << "LOW LEVEL INTERFACE RSA" << std::endl;
     std::cout << "SUCESSFULL TESTS: " << s_rsa << std::endl;
     std::cout << "FAILED TESTS: " << f_rsa << std::endl;
     std::cout << "-----------------------" << std::endl;
   }
-  
-  std::cout << "TESTING LOW LEVEL INTERFACE - AES" << std::endl;
-
-  unsigned int f_aes=0, s_aes=0;
-  for(unsigned int done=0; done<1; ++done){
-    std::string result = test_low_level_AES();
-    if(result=="")
-      ++s_aes;
-    else {
-      ++f_aes;
-      std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << result << std::endl;
-    }
-    std::cout << "-----------------------" << std::endl;
+  if(test_aes){
     std::cout << "LOW LEVEL INTERFACE AES" << std::endl;
     std::cout << "SUCESSFULL TESTS: " << s_aes << std::endl;
     std::cout << "FAILED TESTS: " << f_aes << std::endl;
     std::cout << "-----------------------" << std::endl;
   }
-  
-  std::cout << "TESTING LOW LEVEL INTERFACE - AES AT 1 GIGABIT KEY SIZE" << std::endl;
-  bool s_gigabit = test_gigabit();
-  if(!s_gigabit)
-      std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << "Messages aren't same - gigabit" << std::endl;
-  std::cout << "-----------------------" << std::endl;
-  std::cout << "GIGABIT AES LOW LEVEL  " << std::endl;
-  std::cout << "TEST " << (s_gigabit?"PASSED":"FAILED") << std::endl;
-  std::cout << "-----------------------" << std::endl;
-    
-  
-  std::cout << std::endl << "TEST RESULTS:" << std::endl;
-  std::cout << "-----------------------" << std::endl;
-  std::cout << "HIGH LEVEL INTERFACE" << std::endl;
-  std::cout << "SUCESSFULL TESTS: " << s_high << std::endl;
-  std::cout << "FAILED TESTS: " << f_high << std::endl;
-  std::cout << "-----------------------" << std::endl;
-  std::cout << "LOW LEVEL INTERFACE RSA" << std::endl;
-  std::cout << "SUCESSFULL TESTS: " << s_rsa << std::endl;
-  std::cout << "FAILED TESTS: " << f_rsa << std::endl;
-  std::cout << "-----------------------" << std::endl;
-  std::cout << "LOW LEVEL INTERFACE AES" << std::endl;
-  std::cout << "SUCESSFULL TESTS: " << s_aes << std::endl;
-  std::cout << "FAILED TESTS: " << f_aes << std::endl;
-  std::cout << "-----------------------" << std::endl;
-  std::cout << "GIGABIT AES LOW LEVEL  " << std::endl;
-  std::cout << "TEST " << (s_gigabit?"PASSED":"FAILED") << std::endl;
-  std::cout << "-----------------------" << std::endl;
-
+  if(test_gig){
+    std::cout << "GIGABIT AES LOW LEVEL  " << std::endl;
+    std::cout << "TEST " << (s_gigabit?"PASSED":"FAILED") << std::endl;
+    std::cout << "-----------------------" << std::endl;
+  }
   if(!f_high && !f_rsa && !f_aes && s_gigabit)
     std::cout << "PASSED TESTS" << std::endl;
   else

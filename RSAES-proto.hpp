@@ -104,40 +104,6 @@ namespace RSAES{
   }
   namespace RSA{
     
-    inline void memmove_forward(unsigned char* dest, unsigned char* source, size_t bytes){
-      //Because memmove behavior is undefined on overlapping regions, we define a custom function for portability
-      while(bytes--)
-	*(dest+bytes)=*(source+bytes);
-    }
-    inline void memmove_backward(unsigned char* dest, unsigned char* source, size_t bytes){
-      //Because memmove behavior is undefined on overlapping regions, we define a custom function for portability
-      for(size_t i=0; i<bytes; ++i)
-	*(dest+i)=*(source+i);
-    }
-
-    void serialize_string(std::string &msg){ // Rearrange a string with size information at the front, so that null characters don't cause a problem
-      size_t msg_t = msg.size();
-
-      unsigned char bytes_t = sizeof(size_t); // in case we're on a 32bit system
-
-      msg.resize(1+bytes_t+msg_t);
-
-      unsigned char * msg_bytes = (unsigned char *)msg.data();
-      memmove_forward(msg_bytes+1+sizeof(unsigned char)*bytes_t, msg_bytes, msg_t);
-      *msg_bytes = bytes_t;
-      memcpy(msg_bytes+1, (char*)(&msg_t), bytes_t);
-    }
-
-    void unserialize_string(std::string &msg){
-      unsigned char * msg_bytes = (unsigned char *)msg.data();
-      unsigned char bytes_t = msg_bytes[0];
-      size_t msg_t;
-      memcpy(&msg_t, msg_bytes+1, bytes_t);
-
-      memmove_backward(msg_bytes, msg_bytes+1+sizeof(unsigned char)*bytes_t, msg_t);
-      msg.resize(msg_t);
-    }
-    
     std::string packKey(std::pair<mpz_t,mpz_t> const& key){
       size_t padding = mpz_sizeinbase(key.first, 2); // bits
       padding = padding/8+(padding%8>0?1:0);
@@ -171,105 +137,68 @@ namespace RSAES{
   
     std::string encrypt(std::string const& __input, std::pair<mpz_t,mpz_t> *key){ // TODO: add padding
       std::string input(__input);
-      serialize_string(input);
-
-      {
-	using namespace std;
-
+      
+#define hLen SHA256_DIGEST_LENGTH
 	size_t k = (mpz_sizeinbase(key->first, 2)-1)/8+1;
 	size_t mLen = input.size();
-	size_t hLen = SHA256_DIGEST_LENGTH;
 	if(mLen>k-2*hLen-2)
 	  throw std::runtime_error("Message too long!");
 
 	unsigned char lHash[SHA256_DIGEST_LENGTH];
 	sha256(lHash, "", 0);
 	size_t PS_len = k-mLen-2*hLen-2;
-	unsigned char *PS = (unsigned char*)calloc(sizeof(unsigned char), PS_len);
-	
-	unsigned char *DB = (unsigned char*)malloc(sizeof(unsigned char)*(hLen+PS_len+1+mLen));
-	memcpy(DB, lHash, SHA256_DIGEST_LENGTH);
-	memcpy(DB+SHA256_DIGEST_LENGTH, PS, PS_len);
-	DB[SHA256_DIGEST_LENGTH+PS_len]=0x01;
-	memcpy(DB+SHA256_DIGEST_LENGTH+PS_len+1, input.data(), mLen);
 
 	unsigned char seed[SHA256_DIGEST_LENGTH];
 	for(int i=0; i<SHA256_DIGEST_LENGTH; ++i)
 	  seed[i] = UTIL::dist_char(UTIL::mt);
 
-	unsigned char *dbMask = (unsigned char*)malloc(sizeof(unsigned char)*k-hLen-1);
-	mgf1(dbMask, (const char*)seed, SHA256_DIGEST_LENGTH, k-hLen-1);
-
-	unsigned char *maskedDB = (unsigned char*)malloc(sizeof(unsigned char)*k-hLen-1);
-	for(int i=0; i<k-hLen-1; ++i)
-	  maskedDB[i] = DB[i]^dbMask[i];
-	
-	unsigned char *seedMask = (unsigned char*)malloc(sizeof(unsigned char)*hLen);
-	mgf1(seedMask, (const char*)maskedDB, k-hLen-1, hLen);
-
-	unsigned char *maskedSeed = (unsigned char*)malloc(sizeof(unsigned char)*hLen);
-	for(int i=0; i<hLen; ++i)
-	  maskedSeed[i] = seed[i]^seedMask[i];
-
-	unsigned char *EM = (unsigned char*)malloc(sizeof(unsigned char)*k);
+	unsigned char *EM = (unsigned char*)malloc(sizeof(unsigned char)*k); // combine into one block to save memmoves and syscalls
 	EM[0] = 0;
-	memcpy(EM+1, maskedSeed, hLen);
-	memcpy(EM+1+hLen, maskedDB, (k-hLen-1));
 
-	mpz_t m;
-	mpz_init(m);
-	mpz_import(m, k, 1, 1, 1, 0, EM);
+	unsigned char *maskedDB = EM+1+hLen;
+	mgf1(maskedDB, (const char*)seed, SHA256_DIGEST_LENGTH, k-hLen-1); // this part and the left side of the following xors act as dbMask
 
-	mpz_t c;
-	mpz_init(c);
-	mpz_powm(c, m, key->second, key->first); // encrypt
+	size_t i;
+	{ // all of this inlining is DB in disguize
+	  for(i=0; i<SHA256_DIGEST_LENGTH; ++i) // doing this cuts out a bunch of unnessicary memcpys and memsets
+	    maskedDB[i]^=lHash[i];
+	  i+=PS_len;
+	  maskedDB[i]^=0x01;
+	  ++i;
+	  unsigned char *m = (unsigned char*) input.data();
+	  for(size_t j=0; j<mLen; ++i,++j)
+	    maskedDB[i]^=m[j];
+	}
+        
+	unsigned char *maskedSeed = EM+1;
+	mgf1(maskedSeed, (const char*)maskedDB, k-hLen-1, hLen); // this part and the left size of the following xors act as seedMask
+	for(i=0; i<hLen; ++i)
+	  maskedSeed[i]^=seed[i];
 
-	size_t size_C = (mpz_sizeinbase(c, 2)-1)/8+1;
+	mpz_t m_c;
+	mpz_init(m_c);
+	mpz_import(m_c, k, 1, 1, 1, 0, EM);
+	free(EM);
+	
+	mpz_powm(m_c, m_c, key->second, key->first); // encrypt
+
+	size_t size_C = (mpz_sizeinbase(m_c, 2)-1)/8+1;
 	unsigned char* C = (unsigned char*)malloc(sizeof(unsigned char*)*k);
-	mpz_export(C+(k-size_C), nullptr, 1, 1, 1, 0, c);
-	for(int i=0; i<k-size_C; ++i)
+	mpz_export(C+(k-size_C), nullptr, 1, 1, 1, 0, m_c);
+	mpz_clear(m_c);
+	for(i=k-size_C; i-->0;)
 	  C[i]=0; // fix possible mpz_t missalignment
 	
 	std::string ret_str = UTIL::base64_encode(C, k);
-	
-	free(PS);
-	free(DB);
-	free(dbMask);
-	free(maskedDB);
-	free(seedMask);
-	free(maskedSeed);
-	free(EM);
-	mpz_clear(m);
-	mpz_clear(c);
         free(C);
 
 	return ret_str;
-      }
-      mpz_t ret;
-      mpz_init(ret);
-
-      size_t padding = mpz_sizeinbase(key->first, 2)/8-1;
-      mpz_import(ret, padding, 1, 1, 1, 0, input.data()); // convert to num
-      mpz_powm(ret, ret, key->second, key->first); // encrypt
-      padding = mpz_sizeinbase(ret, 2);
-      unsigned char *str = (unsigned char*)malloc(padding);
-      mpz_export(str, nullptr, 1, 1, 1, 0, ret);
-      std::string ret_str = UTIL::base64_encode(str, padding/8+(padding%8>0?1:0)); // convert to base 64
-      free(str);
-      mpz_clear(ret);
-      return ret_str;
+#undef hLen
     }
 
     inline void unzip(mpz_t rop, std::string const& input){
       std::string dec = UTIL::base64_decode(input);
       mpz_import(rop, dec.length(), 1, 1, 1, 0, dec.c_str());
-    }
-
-    inline std::string fromInt(mpz_t input){
-      std::string ret;
-      ret.resize(1+((mpz_sizeinbase(input, 2)-1)/8));
-      mpz_export((void*)ret.data(), nullptr, 1, 1, 1, 0, input);
-      return ret;
     }
   
     class RSAmanager{
@@ -278,70 +207,52 @@ namespace RSAES{
       
       inline std::string decrypt(std::string const& msg){
 	std::string C = UTIL::base64_decode(msg);
-	size_t hLen = SHA256_DIGEST_LENGTH;
+	
+#define hLen SHA256_DIGEST_LENGTH
 	size_t k = (mpz_sizeinbase(public_key.first, 2)-1)/8+1;
 	
 	if(k<2*hLen+2||k!=C.size())
 	  throw std::runtime_error("Decryption Error");
 	
-	mpz_t c;
-	mpz_init(c);
-	mpz_import(c, k, 1, 1, 1, 0, C.data());
+	mpz_t c_m;
+	mpz_init(c_m);
+	mpz_import(c_m, k, 1, 1, 1, 0, C.data());
 
-	mpz_t m;
-	mpz_init(m);
-	mpz_powm(m, c, private_key, public_key.first);
+	mpz_powm(c_m, c_m, private_key, public_key.first);
 
-	size_t size_EM = (mpz_sizeinbase(m, 2)-1)/8+1;
+	size_t size_EM = (mpz_sizeinbase(c_m, 2)-1)/8+1;
 	unsigned char *EM = (unsigned char*)malloc(sizeof(unsigned char)*k);
-        mpz_export(EM+(k-size_EM), nullptr, 1, 1, 1, 0, m);
-	for(int i=0; i<k-size_EM; ++i) // will always go once
+        mpz_export(EM+(k-size_EM), nullptr, 1, 1, 1, 0, c_m);
+	mpz_clear(c_m);
+	for(size_t i=k-size_EM; i-->0;) // will always go once
 	  EM[i]=0; // Anything more will fix a possible mpz_t size missalignment
 
 	unsigned char lHash[SHA256_DIGEST_LENGTH];
 	sha256(lHash, "", 0);
 	
-        unsigned char *Y = &EM[0];             // 1        byte  long
 	unsigned char *maskedSeed = &EM[1];    // hLen     bytes long
 	unsigned char *maskedDB = &EM[1+hLen]; // k-hLen-1 bytes long
 
-	unsigned char *seedMask = (unsigned char*)malloc(sizeof(unsigned char)*hLen);
-	mgf1(seedMask, (const char*)maskedDB, k-hLen-1, hLen);
+	mgf1_xor(maskedSeed, (const char*)maskedDB, k-hLen-1, hLen); // from here on out, maskedSeed acts as seed
 
-	unsigned char *seed = (unsigned char*)malloc(sizeof(unsigned char)*hLen);
-	for(int i=0; i<hLen; ++i)
-	  seed[i] = maskedSeed[i]^seedMask[i];
-
-	unsigned char *dbMask = (unsigned char*)malloc(sizeof(unsigned char)*k-hLen-1);
-	mgf1(dbMask, (const char*)seed, hLen, k-hLen-1);
-
-	unsigned char *DB = (unsigned char*)malloc(sizeof(unsigned char)*k-hLen-1);
-	for(int i=0; i<k-hLen-1; ++i) // TODO: on all oft hese loops go backwards to take out the i comparison
-	  DB[i] = maskedDB[i]^dbMask[i];
-
-	unsigned char *lHash_prime = &DB[0]; // SHA256_DIGEST_LENGTH bytes long
-	unsigned char *PS = &DB[SHA256_DIGEST_LENGTH];
+	mgf1_xor(maskedDB, (const char*)maskedSeed, hLen, k-hLen-1); // from here on out, maskedDB acts as DB
+	
+	unsigned char *PS = &maskedDB[SHA256_DIGEST_LENGTH];
 	size_t PS_len = 0;
 	
 	for(unsigned char* ref = PS; !*ref; ++ref)
 	  ++PS_len; // counts number of 0x00 bytes
 	
-	unsigned char *M = &DB[SHA256_DIGEST_LENGTH+PS_len+1]; // (k-hLen-1)-(SHA256_DIGEST_LENGTH+PS_len+1) bytes long
+	unsigned char *M = &maskedDB[SHA256_DIGEST_LENGTH+PS_len+1]; // (k-hLen-1)-(SHA256_DIGEST_LENGTH+PS_len+1) bytes long
 	
 	std::string M_str;
 	M_str.resize((k-hLen-1)-(SHA256_DIGEST_LENGTH+PS_len+1));
 	memcpy((char*)M_str.data(), M, (k-hLen-1)-(SHA256_DIGEST_LENGTH+PS_len+1));
 	
-	mpz_clear(c);
-	mpz_clear(m);
 	free(EM);
-	free(seedMask);
-	free(seed);
-	free(dbMask);
-	free(DB);
-	
-	unserialize_string(M_str);
+        
 	return M_str;
+#undef hLen
       }
 
       RSAmanager(unsigned int bits){
@@ -387,10 +298,6 @@ namespace RSAES{
       inline void randPrime(mpz_t rop, unsigned int bits){ // this is too slow
 	do mpz_urandomb(rop, r, bits);
 	while(!mpz_probab_prime_p(rop, 100)); // muler-rabbin
-      }
-
-      inline void decode(mpz_t rop){
-	mpz_powm(rop, rop, private_key, public_key.first);
       }
     };
   }
