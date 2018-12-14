@@ -145,7 +145,7 @@ namespace RSAES{
 	  throw std::runtime_error("Message too long!");
 
 	unsigned char lHash[SHA256_DIGEST_LENGTH];
-	sha256(lHash, "", 0);
+	sha256(lHash, "");
 	size_t PS_len = k-mLen-2*hLen-2;
 
 	unsigned char seed[SHA256_DIGEST_LENGTH];
@@ -156,7 +156,7 @@ namespace RSAES{
 	EM[0] = 0;
 
 	unsigned char *maskedDB = EM+1+hLen;
-	mgf1(maskedDB, (const char*)seed, SHA256_DIGEST_LENGTH, k-hLen-1); // this part and the left side of the following xors act as dbMask
+	mgf1(maskedDB, seed, SHA256_DIGEST_LENGTH, k-hLen-1); // this part and the left side of the following xors act as dbMask
 
 	size_t i;
 	{ // all of this inlining is DB in disguize
@@ -171,7 +171,7 @@ namespace RSAES{
 	}
         
 	unsigned char *maskedSeed = EM+1;
-	mgf1(maskedSeed, (const char*)maskedDB, k-hLen-1, hLen); // this part and the left size of the following xors act as seedMask
+	mgf1(maskedSeed, maskedDB, k-hLen-1, hLen); // this part and the left size of the following xors act as seedMask
 	for(i=0; i<hLen; ++i)
 	  maskedSeed[i]^=seed[i];
 
@@ -228,14 +228,14 @@ namespace RSAES{
 	  EM[i]=0; // Anything more will fix a possible mpz_t size missalignment
 
 	unsigned char lHash[SHA256_DIGEST_LENGTH];
-	sha256(lHash, "", 0);
+	sha256(lHash, "");
 	
 	unsigned char *maskedSeed = &EM[1];    // hLen     bytes long
 	unsigned char *maskedDB = &EM[1+hLen]; // k-hLen-1 bytes long
 
-	mgf1_xor(maskedSeed, (const char*)maskedDB, k-hLen-1, hLen); // from here on out, maskedSeed acts as seed
+	mgf1_xor(maskedSeed, maskedDB, k-hLen-1, hLen); // from here on out, maskedSeed acts as seed
 
-	mgf1_xor(maskedDB, (const char*)maskedSeed, hLen, k-hLen-1); // from here on out, maskedDB acts as DB
+	mgf1_xor(maskedDB, maskedSeed, hLen, k-hLen-1); // from here on out, maskedDB acts as DB
 	
 	unsigned char *PS = &maskedDB[SHA256_DIGEST_LENGTH];
 	size_t PS_len = 0;
