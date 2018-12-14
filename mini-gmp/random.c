@@ -748,5 +748,6 @@ __gmp_randget_mt (gmp_randstate_t rstate, mp_ptr dest, unsigned long int nbits)
 }
 
 #undef N
+#undef M
 
 #endif // __GMP_RAND__

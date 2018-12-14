@@ -292,7 +292,5 @@ size_t mpz_out_str (FILE *, int, const mpz_t);
 void mpz_import (mpz_t, size_t, int, size_t, int, size_t, const void *);
 void *mpz_export (void *, size_t *, int, size_t, int, size_t, const mpz_t);
 
-#if defined (__cplusplus)
-}
 #endif
 #endif /* __MINI_GMP_H__ */
