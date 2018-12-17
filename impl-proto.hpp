@@ -1,5 +1,6 @@
-#ifndef __RSAES__
-#define __RSAES__
+#ifndef __RSAES_SOURCE__
+#define __RSAES_SOURCE__
+
 #include <iostream>
 //will use mini-gmp or gmp.h, whichever specified during make
 #include "SHA256/sha256.h"
@@ -322,7 +323,7 @@ namespace RSAES{
       return c;
     }
 
-    unsigned char stable[256]     = {99, 124, 119, 123, 242, 107, 111, 197, 48, 1, 103, 43, 254, 215, 171, 118, 
+    const unsigned char stable[256]     = {99, 124, 119, 123, 242, 107, 111, 197, 48, 1, 103, 43, 254, 215, 171, 118, 
 					    202, 130, 201, 125, 250, 89, 71, 240, 173, 212, 162, 175, 156, 164, 114, 192, 
 					    183, 253, 147, 38, 54, 63, 247, 204, 52, 165, 229, 241, 113, 216, 49, 21, 
 					    4, 199, 35, 195, 24, 150, 5, 154, 7, 18, 128, 226, 235, 39, 178, 117, 
@@ -339,7 +340,7 @@ namespace RSAES{
 					    225, 248, 152, 17, 105, 217, 142, 148, 155, 30, 135, 233, 206, 85, 40, 223, 
 					    140, 161, 137, 13, 191, 230, 66, 104, 65, 153, 45, 15, 176, 84, 187, 22};
 
-    unsigned char stable_inv[256] = {82, 9, 106, 213, 48, 54, 165, 56, 191, 64, 163, 158, 129, 243, 215, 251, 
+    const unsigned char stable_inv[256] = {82, 9, 106, 213, 48, 54, 165, 56, 191, 64, 163, 158, 129, 243, 215, 251, 
 					    124, 227, 57, 130, 155, 47, 255, 135, 52, 142, 67, 68, 196, 222, 233, 203, 
 					    84, 123, 148, 50, 166, 194, 35, 61, 238, 76, 149, 11, 66, 250, 195, 78, 
 					    8, 46, 161, 102, 40, 217, 36, 178, 118, 91, 162, 73, 109, 139, 209, 37, 
@@ -429,7 +430,7 @@ namespace RSAES{
 	*(rows+i) = sbox_inv(*(rows+i));
     }
 
-    unsigned char ltable[256] = {0x00, 0xff, 0xc8, 0x08, 0x91, 0x10, 0xd0, 0x36, 
+    const unsigned char ltable[256] = {0x00, 0xff, 0xc8, 0x08, 0x91, 0x10, 0xd0, 0x36, 
 					0x5a, 0x3e, 0xd8, 0x43, 0x99, 0x77, 0xfe, 0x18, 
 					0x23, 0x20, 0x07, 0x70, 0xa1, 0x6c, 0x0c, 0x7f, 
 					0x62, 0x8b, 0x40, 0x46, 0xc7, 0x4b, 0xe0, 0x0e, 
@@ -462,7 +463,7 @@ namespace RSAES{
 					0x3b, 0x52, 0x6f, 0xf6, 0x2e, 0x89, 0xf7, 0xc0, 
 					0x68, 0x1b, 0x64, 0x04, 0x06, 0xbf, 0x83, 0x38 };
 
-    unsigned char atable[256] = {0x01, 0xe5, 0x4c, 0xb5, 0xfb, 0x9f, 0xfc, 0x12, 
+    const unsigned char atable[256] = {0x01, 0xe5, 0x4c, 0xb5, 0xfb, 0x9f, 0xfc, 0x12, 
 					0x03, 0x34, 0xd4, 0xc4, 0x16, 0xba, 0x1f, 0x36, 
 					0x05, 0x5c, 0x67, 0x57, 0x3a, 0xd5, 0x21, 0x5a, 
 					0x0f, 0xe4, 0xa9, 0xf9, 0x4e, 0x64, 0x63, 0xee, 
@@ -679,127 +680,7 @@ namespace RSAES{
       return input;
     }
   }
-  
-  class EncryptionManager{
-  private:
-    gmp_randstate_t r; //TODO: turn this into a pointer
-    RSA::RSAmanager* rsaCore; // I use pointers for a tighter control of lifetime
-    std::pair<mpz_t,mpz_t> *unpacked_key;
-    AES::AESkey* AES_key;
-    
-  public:
-    EncryptionManager() :  rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){
-      gmp_randinit_default(r);
-      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
-    }; // create an empty object just for unpacking
-    EncryptionManager(unsigned int RSAbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're sending out the public key
-      gmp_randinit_default(r);
-      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
-      rsaCore = new RSA::RSAmanager(RSAbits);
-    }
-    EncryptionManager(std::string const& key): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // we're recieving the public key and generating a pass for AES
-      gmp_randinit_default(r);
-      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
-      RSA::unpackKey(&unpacked_key, key);
-
-      
-      size_t AESbits = static_cast<size_t>(pow(2, (size_t)log2(mpz_sizeinbase(unpacked_key->first, 2)-1) + 1)); // round up to next power of two, unless already a power of 2. This gives the largest key size that we can send over with a given RSA key.
-      //generate random pass
-      AES_key = new AES::AESkey(AESbits);
-    }
-    EncryptionManager(std::string const& key, size_t AESbits): rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){ // specify AES size
-      gmp_randinit_default(r);
-      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
-      RSA::unpackKey(&unpacked_key, key);
-      AES_key = new AES::AESkey(AESbits);
-    }
-
-    void __destroy(){
-      if(rsaCore!=nullptr){
-	delete rsaCore;
-	rsaCore=nullptr;
-      }
-      if(unpacked_key!=nullptr){
-	mpz_urandomb(unpacked_key->first, r, mpz_sizeinbase(unpacked_key->first, 32)); // scramble ram just in case
-	mpz_urandomb(unpacked_key->second, r, mpz_sizeinbase(unpacked_key->second, 32));
-	mpz_clear(unpacked_key->first);
-	mpz_clear(unpacked_key->second);
-	delete unpacked_key;
-	unpacked_key=nullptr;
-      }
-      if(AES_key!=nullptr){
-	delete AES_key;
-	AES_key=nullptr;
-      }
-      gmp_randclear(r);
-    }
-
-    ~EncryptionManager(){
-      __destroy();
-    }
-
-    void destroy(){
-      __destroy();
-      gmp_randinit_default(r);
-      gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
-    }
-
-    std::string getPublicKey(){
-      if(rsaCore==nullptr)
-	throw std::runtime_error("This object doesn't have a core attached");
-      return RSA::packKey(rsaCore->public_key);
-    }
-
-    std::string getKeyResponse(){
-      if(AES_key==nullptr)
-	throw std::runtime_error("This object hasn't been initilized correctly");
-      
-      char *p = (char*) AES_key->expanded_key.data();
-      std::string AES_string(p, p+AES_key->base); // send the un-expanded key so that we need less data to send
-      
-      std::string ret = RSA::encrypt(AES_string, unpacked_key);
-      mpz_urandomb(unpacked_key->first, r, mpz_sizeinbase(unpacked_key->first, 32)); // scramble ram just in case
-      mpz_urandomb(unpacked_key->second, r, mpz_sizeinbase(unpacked_key->second, 32));
-      mpz_clear(unpacked_key->first);
-      mpz_clear(unpacked_key->second);
-      delete unpacked_key; // might as well get rid of this
-      unpacked_key = nullptr;
-      return ret;
-    }
-
-    void registerPass(std::string KeyResponse){
-      KeyResponse = rsaCore->decrypt(KeyResponse);
-      std::vector<unsigned char> exp(KeyResponse.size());
-      memcpy(exp.data(), KeyResponse.data(), KeyResponse.size()); // This gets ndk to shut up
-
-      AES_key = new AES::AESkey(exp);
-      delete rsaCore; // dont need this anymore either
-      rsaCore = nullptr;
-    }
-
-    std::string encrypt(std::string const& input){
-      if(AES_key==nullptr)
-	throw std::runtime_error("Object not properly initialized");
-      return AES::big_encrypt(input, *AES_key);
-    }
-
-    std::string decrypt(std::string const& input){
-      if(AES_key==nullptr)
-	throw std::runtime_error("Object not properly initialized");
-      return AES::big_decrypt(input, *AES_key);
-    }
-
-    inline std::string pack(){ // Packs up the entire class as a string to be saved on disk or something similar. Only for fully initilized classes
-      return AES_key->pack(); // we can squeeze in these optimizations here because we don't need to encrypt it with RSA
-    }
-
-    void unpack(std::string KeyResponse){
-      KeyResponse = UTIL::base64_decode(KeyResponse);
-      std::vector<unsigned char> exp(KeyResponse.size());
-      memcpy(exp.data(), KeyResponse.data(), KeyResponse.size()); // This gets ndk to shut up
-      AES_key = new AES::AESkey(exp);
-    }
-  };
 }
 
-#endif // __RSAES__
+
+#endif // __RSAES_SOURCE__

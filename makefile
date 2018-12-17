@@ -13,19 +13,19 @@ clean:
 
 test:
 	$(eval CXX := $(if $(CXX),$(CXX),"g++"))
-	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" RSAES.hpp),-lgmp,))
+	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" impl.hpp),-lgmp,))
 
 	$(CXX) $(GMP_H) $(CXXFLAGS) tests_and_examples.cpp -Wall -O2 && ./a.out
 
 debug:
 	$(eval CXX := $(if $(CXX),$(CXX),"g++"))
-	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" RSAES.hpp),-lgmp,))
+	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" impl.hpp),-lgmp,))
 
 	$(CXX) $(GMP_H) $(CXXFLAGS) -g tests_and_examples.cpp && valgrind --track-origins=yes --leak-check=full ./a.out
 
 time:
 	$(eval CXX := $(if $(CXX),$(CXX),"g++"))
-	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" RSAES.hpp),-lgmp,))
+	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" impl.hpp),-lgmp,))
 
 	$(CXX) $(GMP_H) $(CXXFLAGS) tests_and_examples.cpp && time ./a.out
 
@@ -40,6 +40,6 @@ init:
 	$(eval searchstr := $(if $(filter $(lib),yes),"\\\#include <gmp.h>"))
 	$(eval searchstr := $(if $(filter $(lib),no),"\#include \"mini-gmp/mini-gmp.c\"",$(searchstr)))
 
-	@rm -f RSAES.hpp
+	@rm -f impl.hpp
 	@echo $(msg)
-	@(echo $(searchstr); cat RSAES-proto.hpp) > RSAES.hpp
+	@(echo $(searchstr); cat impl-proto.hpp) > impl.hpp
