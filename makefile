@@ -4,7 +4,7 @@ default:
 clean:
 	rm -f a.out
 	rm -f vgcore*
-	rm -f RSAES.hpp
+	rm -f impl.hpp
 	rm -f *~
 	rm -f mini-gmp/*~
 	rm -f \#*\#
