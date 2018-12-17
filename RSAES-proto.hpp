@@ -218,7 +218,7 @@ namespace RSAES{
 	mpz_init(c_m);
 	mpz_import(c_m, k, 1, 1, 1, 0, C.data());
 
-	mpz_powm(c_m, c_m, private_key, public_key.first);
+	mpz_powm_sec(c_m, c_m, private_key, public_key.first);
 
 	size_t size_EM = (mpz_sizeinbase(c_m, 2)-1)/8+1;
 	unsigned char *EM = (unsigned char*)malloc(sizeof(unsigned char)*k);

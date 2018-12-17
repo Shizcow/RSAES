@@ -212,6 +212,7 @@ void mpz_pow_ui (mpz_t, const mpz_t, unsigned long);
 void mpz_ui_pow_ui (mpz_t, unsigned long, unsigned long);
 void mpz_powm (mpz_t, const mpz_t, const mpz_t, const mpz_t);
 void mpz_powm_ui (mpz_t, const mpz_t, unsigned long, const mpz_t);
+  void mpz_powm_sec (mpz_ptr r, mpz_srcptr b, mpz_srcptr e, mpz_srcptr m);
 
 void mpz_rootrem (mpz_t, mpz_t, const mpz_t, unsigned long);
 int mpz_root (mpz_t, const mpz_t, unsigned long);
