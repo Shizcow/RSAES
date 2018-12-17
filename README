@@ -1,10 +1,26 @@
 -------------------------------------------------------------------------
+                                 WARNING
+
+These implimentations of crypto functions are NOT SECURE and SHOULD NOT
+be used in any serious implimentations of anything whatsoever. This code
+has been written solely as a learning experience for the writer. One day
+far in the future it might come closer to being secure, but that day is
+not today. As it stands, there are more vulnerabilities than I can count
+or even understand.
+
+Seriously, don't use this.
+
+-------------------------------------------------------------------------
 
                                DESCRIPTION
 
 This is RSAES, a C++ interface for encryption over RSA and AES-N.
 
-It is intended for applications which need very simple encryption
+In its current state, this project IS NOT SECURE and should not
+be used in production. It is a learning experience on the author's
+part, and only might be secure in the distant future.
+
+The intent is for applications which need very simple encryption
 in a very small footprint. This library is meant to be portable
 above all else, with two options of use: using a pre-compiled
 version of GMP linked through lgmp, or through a version of
