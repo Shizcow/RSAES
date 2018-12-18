@@ -12,6 +12,9 @@
 #include <math.h>         // pow, log2
 #include <openssl/rand.h> // source of random bytes
 
+#include <iostream>
+#include <cassert>
+
 namespace RSAES{
 
   namespace UTIL{
@@ -73,7 +76,9 @@ namespace RSAES{
     }
 
     std::string base64_decode(unsigned char const* encoded_string, size_t in_len) { // Credit to René Nyffenegger, optimized myself
-      std::string ret;
+      size_t flen = in_len/4*3+(in_len%4>1?(in_len%4-1):0);
+      unsigned char* ret = (unsigned char*)malloc(sizeof(unsigned char)*flen);
+      size_t ret_idx = 0;
       unsigned long i = 0, j = 0, in_ = 0;
       unsigned char char_array_3[7]; // See above
       unsigned char *char_array_4 = char_array_3+3;
@@ -89,21 +94,27 @@ namespace RSAES{
 	  char_array_3[2] = static_cast<unsigned char>(((char_array_4[2] & 0x3) << 6) + char_array_4[3]);
 	
 	  for (i = 0; (i < 3); i++)
-	    ret += char_array_3[i];
+	    ret[ret_idx++] = char_array_3[i];
 	  i = 0;
 	}
       }
     
-      if (i){
+      if (i>1){
 	for (j = 0; j < i; j++)
 	  char_array_4[j] = static_cast<unsigned char>(find_as_base64(char_array_4[j]));
       
 	char_array_3[0] = static_cast<unsigned char>((char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4));
 	char_array_3[1] = static_cast<unsigned char>(((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2));
  
-	for (j = 0; (j < i - 1); j++) ret += char_array_3[j];
+	for (j = 0; (j < i - 1); j++) ret[ret_idx++] = char_array_3[j];
       }
-      return ret;
+
+      std::string ret_str;
+      ret_str.resize(flen);
+      memcpy((char*)ret_str.data(), ret, flen);
+      free(ret);
+      
+      return ret_str;
     }
   }
   namespace RSA{
