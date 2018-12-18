@@ -1,26 +1,20 @@
 #ifndef __RSAES_SOURCE__
 #define __RSAES_SOURCE__
 
-#include <iostream>
 //will use mini-gmp or gmp.h, whichever specified during make
-#include "SHA256/sha256.h"
-#include "SHA256/mgf1.h"
-#include <limits>    //     numerical limits
-#include <string>    //     passing messages in std::string
-#include <vector>    //     big key storage
-#include <array>     //     round key passing
-#include <random>    //     it'scrypto afterall
-#include <algorithm> //     copy_n (makes cloning vectors faster)
-#include <cstring>   //     memcpy
+#include "SHA256/sha256.h"// hash functions for oaep
+#include "SHA256/mgf1.h"  // mask generation for oaep
+#include <string>         // passing messages in std::string
+#include <vector>         // big key storage
+#include <array>          // round key storage
+#include <algorithm>      // copy_n (makes cloning vectors faster)
+#include <string.h>       // memcpy
+#include <math.h>         // pow, log2
+#include <openssl/rand.h> // source of random bytes
 
 namespace RSAES{
 
   namespace UTIL{
-    std::random_device rd;
-    std::mt19937 mt(rd());
-    std::uniform_int_distribution<unsigned short> dist_char(0, 255);
-    std::uniform_int_distribution<unsigned short> dist_short(0, std::numeric_limits<unsigned short>::max());
-    std::uniform_int_distribution<unsigned long> dist_r(0, std::numeric_limits<unsigned long>::max());
   
     const char base64_chars[64] = {'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
 					  'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z',
@@ -150,8 +144,8 @@ namespace RSAES{
 	size_t PS_len = k-mLen-2*hLen-2;
 
 	unsigned char seed[SHA256_DIGEST_LENGTH];
-	for(int i=0; i<SHA256_DIGEST_LENGTH; ++i)
-	  seed[i] = UTIL::dist_char(UTIL::mt);
+	if(RAND_bytes(&seed[0], SHA256_DIGEST_LENGTH)!=1)
+	  throw std::runtime_error("Openssl rand error");
 
 	unsigned char *EM = (unsigned char*)malloc(sizeof(unsigned char)*k); // combine into one block to save memmoves and syscalls
 	EM[0] = 0;
@@ -261,7 +255,10 @@ namespace RSAES{
 	mpz_init(public_key.first);
 	mpz_init(public_key.second);
 	gmp_randinit_default(r);
-	gmp_randseed_ui(r, UTIL::dist_r(UTIL::mt));
+	unsigned long seed;
+	if(RAND_bytes((unsigned char*)&seed, sizeof(unsigned long))!=1)
+	  throw std::runtime_error("Openssl rand error");
+	gmp_randseed_ui(r, seed);
 	randPrime(public_key.second, bits);
 	mpz_t q;
 	mpz_init(q);
@@ -577,10 +574,8 @@ namespace RSAES{
 	  throw std::invalid_argument("bits size is invalid"); //base size should be a multiple of 2
 	std::vector<unsigned char> vec;
 	vec.resize(base);
-	unsigned short *ptr = reinterpret_cast<unsigned short*>(vec.data()); // I mean, it's faster
-	size_t base_2 = base/2;
-	for(size_t i=0; i<base_2; ++i, ++ptr)
-	  *ptr = UTIL::dist_short(UTIL::mt);
+	if(RAND_bytes((unsigned char*)vec.data(), base)!=1)
+	  throw std::runtime_error("Openssl rand error");
 	expanded_key = expand_key(vec);
       }
       ~AESkey(){ // clear ram just in case
@@ -652,14 +647,15 @@ namespace RSAES{
 	return "";
       size_t size_p = size_s % 16;
       size_p = size_p==0?size_s:size_s+16-size_p; // size after padding
-      if(size_s!=size_p){ // it needs padding
-	input.reserve(size_s); // fewer reallocs
-	input+=static_cast<char>('\0');
-	for(size_t i=0; i<(size_p-size_s-1); ++i)
-	  input+=(char)UTIL::dist_char(UTIL::mt);
-      }
+      if(size_s!=size_p)
+	input.resize(size_p);
       
-      unsigned char * c = (unsigned char*)input.data();
+      unsigned char *c = (unsigned char*)input.data();
+      if(size_s!=size_p){ // it needs padding
+	*(c+size_s) = 0;
+	if(RAND_bytes(c+size_s+1, size_p-size_s-1)!=1)
+	  throw std::runtime_error("Openssl rand error");
+      }
       
       for(size_t i=0; i<size_p/16; i++)
 	small_encrypt(c+i*16, expanded_key);
@@ -681,6 +677,5 @@ namespace RSAES{
     }
   }
 }
-
 
 #endif // __RSAES_SOURCE__

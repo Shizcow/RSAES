@@ -15,19 +15,19 @@ test:
 	$(eval CXX := $(if $(CXX),$(CXX),"g++"))
 	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" impl.hpp),-lgmp,))
 
-	$(CXX) $(GMP_H) $(CXXFLAGS) tests_and_examples.cpp -Wall -O2 && ./a.out
+	$(CXX) $(GMP_H) $(CXXFLAGS) -lcrypto tests_and_examples.cpp -Wall -O2 && ./a.out
 
 debug:
 	$(eval CXX := $(if $(CXX),$(CXX),"g++"))
 	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" impl.hpp),-lgmp,))
 
-	$(CXX) $(GMP_H) $(CXXFLAGS) -g tests_and_examples.cpp && valgrind --track-origins=yes --leak-check=full ./a.out
+	$(CXX) $(GMP_H) $(CXXFLAGS) -lcrypto -g tests_and_examples.cpp && valgrind --track-origins=yes --leak-check=full ./a.out
 
 time:
 	$(eval CXX := $(if $(CXX),$(CXX),"g++"))
 	$(eval GMP_H := $(if $(shell grep "include <gmp.h>" impl.hpp),-lgmp,))
 
-	$(CXX) $(GMP_H) $(CXXFLAGS) tests_and_examples.cpp && time ./a.out
+	$(CXX) $(GMP_H) $(CXXFLAGS) -lcrypto -O2 tests_and_examples.cpp && time ./a.out
 
 
 

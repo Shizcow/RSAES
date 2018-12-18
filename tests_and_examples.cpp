@@ -1,6 +1,9 @@
 #include "RSAES.hpp"
-#include <iostream>  //     showing results of tests
-#include <stdexcept> //     throwing errors in tests
+#include <iostream>  // showing results of tests
+#include <random>    // Fast/easy randomness for generating test words
+
+std::random_device rd;
+std::mt19937 mt(rd());
 
 std::string word_bank[50] = {
 			     "pleasant",
@@ -70,10 +73,10 @@ std::string test_high_level(){
 
     std::cout << "Register the AES key with manager 1. Now we can send a message:" << std::endl;
     Bob.registerPass(msg);
-    std::string msg_s = word_bank[dist_50(RSAES::UTIL::mt)];
-    int words = dist_50(RSAES::UTIL::mt);
+    std::string msg_s = word_bank[dist_50(mt)];
+    int words = dist_50(mt);
     for(int i=0; i<words; ++i)
-      (msg_s+=' ')+=word_bank[dist_50(RSAES::UTIL::mt)];
+      (msg_s+=' ')+=word_bank[dist_50(mt)];
     msg = Bob.encrypt(msg_s);
     std::cout << msg << std::endl << std::endl;
 
@@ -96,10 +99,10 @@ std::string test_high_level(){
     Allice2.unpack(Allice_pack);
     
     std::cout << "Now let's go the other way. Encrypt with manager 2:" << std::endl;
-    msg_s = word_bank[dist_50(RSAES::UTIL::mt)];
-    words = dist_50(RSAES::UTIL::mt);
+    msg_s = word_bank[dist_50(mt)];
+    words = dist_50(mt);
     for(int i=0; i<words; ++i)
-      (msg_s+=' ')+=word_bank[dist_50(RSAES::UTIL::mt)];
+      (msg_s+=' ')+=word_bank[dist_50(mt)];
     msg = Allice2.encrypt(msg_s);
     std::cout << msg << std::endl << std::endl;
 
@@ -122,10 +125,10 @@ std::string test_low_level_RSA(){
     std::cout << keyStr << std::endl << std::endl;
 
     std::cout << "Encrypt a message using the public key:" << std::endl;
-    std::string msg_s = word_bank[dist_50(RSAES::UTIL::mt)];
-    int words = dist_50(RSAES::UTIL::mt)/2;
+    std::string msg_s = word_bank[dist_50(mt)];
+    int words = dist_50(mt)/2;
     for(int i=0; i<words; ++i)
-      (msg_s+=' ')+=word_bank[dist_50(RSAES::UTIL::mt)];
+      (msg_s+=' ')+=word_bank[dist_50(mt)];
     std::pair<mpz_t,mpz_t> *recvKey;
     RSAES::RSA::unpackKey(&recvKey, keyStr);
     std::string msg = RSAES::RSA::encrypt(msg_s, recvKey);
@@ -149,10 +152,10 @@ std::string test_low_level_AES(){
   try{
     std::cout << "Start an AESkey and encrypt a message at 128 bits key size" << std::endl;
     RSAES::AES::AESkey Bob(128);
-    std::string msg_s = word_bank[dist_50(RSAES::UTIL::mt)];
-    int words = dist_50(RSAES::UTIL::mt);
+    std::string msg_s = word_bank[dist_50(mt)];
+    int words = dist_50(mt);
     for(int i=0; i<words; ++i)
-      (msg_s+=' ')+=word_bank[dist_50(RSAES::UTIL::mt)];
+      (msg_s+=' ')+=word_bank[dist_50(mt)];
     std::string msg = RSAES::AES::big_encrypt(msg_s, Bob);
     std::cout << msg << std::endl << std::endl;
 
@@ -174,10 +177,10 @@ std::string test_low_level_AES(){
     
     std::cout << "Start an AESkey and encrypt a message at 1 megabit key size" << std::endl;
     RSAES::AES::AESkey Allice(1048576);
-    msg_s = word_bank[dist_50(RSAES::UTIL::mt)];
-    words = dist_50(RSAES::UTIL::mt);
+    msg_s = word_bank[dist_50(mt)];
+    words = dist_50(mt);
     for(int i=0; i<words; ++i)
-      (msg_s+=' ')+=word_bank[dist_50(RSAES::UTIL::mt)];
+      (msg_s+=' ')+=word_bank[dist_50(mt)];
     msg = RSAES::AES::big_encrypt(msg_s, Allice);
     std::cout << msg << std::endl << std::endl;
 
@@ -197,10 +200,10 @@ bool test_gigabit(){
     std::cout << "Create and expand an AESkey of 1 gigabit key size" << std::endl;
     RSAES::AES::AESkey Allice(1073741824);
     std::cout << "Key created. Encrypt the message using the key" << std::endl;
-    std::string msg_s = word_bank[dist_50(RSAES::UTIL::mt)];
+    std::string msg_s = word_bank[dist_50(mt)];
 
     for(int i=0; i<50; ++i)
-      (msg_s+=' ')+=word_bank[dist_50(RSAES::UTIL::mt)];
+      (msg_s+=' ')+=word_bank[dist_50(mt)];
     std::string msg = RSAES::AES::big_encrypt(msg_s, Allice);
     std::cout << msg << std::endl << std::endl;
 
