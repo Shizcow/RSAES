@@ -1,5 +1,6 @@
 #ifndef __RSAES_ENC__
 #define __RSAES_ENC__
+
 namespace RSAES{
   class EncryptionManager;
   EncryptionManager::EncryptionManager() : rsaCore(nullptr), unpacked_key(nullptr), AES_key(nullptr){
@@ -121,7 +122,7 @@ namespace RSAES{
   }
 
   void EncryptionManager::unpack(std::string KeyResponse){
-    KeyResponse = UTIL::base64_decode(KeyResponse);
+    KeyResponse = UTIL::base64_decode((const unsigned char*)KeyResponse.data(), KeyResponse.size());
     std::vector<unsigned char> exp(KeyResponse.size());
     memcpy(exp.data(), KeyResponse.data(), KeyResponse.size()); // This gets ndk to shut up
     AES_key = new AES::AESkey(exp);
