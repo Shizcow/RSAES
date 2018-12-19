@@ -75,9 +75,9 @@ namespace RSAES{
       return ret_str;
     }
 
-    std::string base64_decode(unsigned char const* encoded_string, size_t in_len) { // Credit to René Nyffenegger, optimized myself
-      size_t flen = in_len/4*3+(in_len%4>1?(in_len%4-1):0);
-      unsigned char* ret = (unsigned char*)malloc(sizeof(unsigned char)*flen);
+    unsigned char* base64_decode(unsigned char const* encoded_string, size_t in_len, size_t* flen) { // Credit to René Nyffenegger, optimized myself
+      *flen = in_len/4*3+(in_len%4>1?(in_len%4-1):0);
+      unsigned char* ret = (unsigned char*)malloc(sizeof(unsigned char)*(*flen));
       size_t ret_idx = 0;
       unsigned long i = 0, j = 0, in_ = 0;
       unsigned char char_array_3[7]; // See above
@@ -109,12 +109,7 @@ namespace RSAES{
 	for (j = 0; (j < i - 1); j++) ret[ret_idx++] = char_array_3[j];
       }
 
-      std::string ret_str;
-      ret_str.resize(flen);
-      memcpy((char*)ret_str.data(), ret, flen);
-      free(ret);
-      
-      return ret_str;
+      return ret;
     }
   }
   namespace RSA{
@@ -138,16 +133,19 @@ namespace RSAES{
     };
 
     void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string const& key){
-      std::string first = key.substr(0, key.find('_'));
-      std::string second = key.substr(first.length()+1, key.length());
-      first = UTIL::base64_decode((const unsigned char*)first.data(), first.size());
-      second = UTIL::base64_decode((const unsigned char*)second.data(), second.size());
+      std::string _first = key.substr(0, key.find('_'));
+      std::string _second = key.substr(_first.length()+1, key.length());
+      size_t first_s, second_s;
+      unsigned char *first = UTIL::base64_decode((const unsigned char*)_first.data(), _first.size(), &first_s);
+      unsigned char *second = UTIL::base64_decode((const unsigned char*)_second.data(), _second.size(), &second_s);
 
       *rop = new std::pair<mpz_t,mpz_t>;
       mpz_init((*rop)->first);
-      mpz_import((*rop)->first, first.length(), 1, 1, 1, 0, first.c_str());
+      mpz_import((*rop)->first, first_s, 1, 1, 1, 0, first);
       mpz_init((*rop)->second);
-      mpz_import((*rop)->second, second.length(), 1, 1, 1, 0, second.c_str());
+      mpz_import((*rop)->second, second_s, 1, 1, 1, 0, second);
+      free(first);
+      free(second);
     }
   
     std::string encrypt(std::string const& __input, std::pair<mpz_t,mpz_t> *key){ // TODO: add padding
@@ -212,8 +210,10 @@ namespace RSAES{
     }
 
     inline void unzip(mpz_t rop, std::string const& input){
-      std::string dec = UTIL::base64_decode((const unsigned char*)input.data(), input.size());
-      mpz_import(rop, dec.length(), 1, 1, 1, 0, dec.c_str());
+      size_t dec_s;
+      unsigned char* dec = UTIL::base64_decode((const unsigned char*)input.data(), input.size(), &dec_s);
+      mpz_import(rop, dec_s, 1, 1, 1, 0, dec);
+      free(dec);
     }
   
     class RSAmanager{
@@ -221,17 +221,19 @@ namespace RSAES{
       std::pair<mpz_t,mpz_t> public_key;
       
       inline std::string decrypt(std::string const& msg){
-	std::string C = UTIL::base64_decode((const unsigned char*)msg.data(), msg.size());
+	size_t C_s;
+	unsigned char *C = UTIL::base64_decode((const unsigned char*)msg.data(), msg.size(), &C_s);
 	
 #define hLen SHA256_DIGEST_LENGTH
 	size_t k = (mpz_sizeinbase(public_key.first, 2)-1)/8+1;
 	
-	if(k<2*hLen+2||k!=C.size())
+	if(k<2*hLen+2||k!=C_s)
 	  throw std::runtime_error("Decryption Error");
 	
 	mpz_t c_m;
 	mpz_init(c_m);
-	mpz_import(c_m, k, 1, 1, 1, 0, C.data());
+	mpz_import(c_m, k, 1, 1, 1, 0, C);
+	free(C);
 
 	mpz_powm(c_m, c_m, private_key, public_key.first);
 
@@ -683,17 +685,16 @@ namespace RSAES{
       return UTIL::base64_encode((const unsigned char*)input.c_str(), size_p);
     }
 
-    std::string big_decrypt(std::string input, AESkey & expanded_key){ // returns as string
-      input = UTIL::base64_decode((const unsigned char*)input.data(), input.size());
-      size_t size_s = input.length();
+    std::string big_decrypt(std::string _input, AESkey & expanded_key){ // returns as string
+      size_t input_s;
+      unsigned char* c = UTIL::base64_decode((const unsigned char*)_input.data(), _input.size(), &input_s);
       
-      unsigned char * c = (unsigned char*)input.c_str();
-
-      for(size_t i=0; i<size_s/16; i++)
+      for(size_t i=0; i<input_s/16; i++)
 	small_decrypt(c+i*16, expanded_key); // no, multithreading does not make this faster
-
-      input.resize(strlen(input.c_str())); // makes string comparisons shut up
-      return input;
+      
+      std::string out((char*)c); // this actually just strips the AES padding by ignoring everything after the null char
+      free(c);
+      return out;
     }
   }
 }

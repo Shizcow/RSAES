@@ -122,9 +122,11 @@ namespace RSAES{
   }
 
   void EncryptionManager::unpack(std::string KeyResponse){
-    KeyResponse = UTIL::base64_decode((const unsigned char*)KeyResponse.data(), KeyResponse.size());
-    std::vector<unsigned char> exp(KeyResponse.size());
-    memcpy(exp.data(), KeyResponse.data(), KeyResponse.size()); // This gets ndk to shut up
+    size_t keyRes_s;
+    unsigned char *KeyResponse_p = UTIL::base64_decode((const unsigned char*)KeyResponse.data(), KeyResponse.size(), &keyRes_s);
+    std::vector<unsigned char> exp(keyRes_s); // TODO: optimize out the vector
+    memcpy(exp.data(), KeyResponse_p, keyRes_s); // This gets ndk to shut up
+    free(KeyResponse_p);
     AES_key = new AES::AESkey(exp);
   }
 }
