@@ -170,8 +170,9 @@ std::string test_low_level_AES(){
       size_t key_s;
       unsigned char* prt = RSAES::UTIL::base64_encode((const unsigned char*)AES_string.c_str(), AES_string.size(), &key_s);
       for(size_t i=0; i<key_s; ++i)
-	std::cout << prt[i] << std::endl;
+	std::cout << prt[i];
       free(prt);
+      putchar('\n');
       putchar('\n');
     }
     if(msg_s!=msg)

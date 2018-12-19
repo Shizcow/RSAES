@@ -12,9 +12,6 @@
 #include <math.h>         // pow, log2
 #include <openssl/rand.h> // source of random bytes
 
-#include <iostream>
-#include <cassert>
-
 namespace RSAES{
 
   namespace UTIL{
@@ -114,10 +111,6 @@ namespace RSAES{
       mpz_export(str, nullptr, 1, 1, 1, 0, key.first);
       size_t first_s;
       unsigned char *first = UTIL::base64_encode(str, padding, &first_s);
-      std::string first_str;
-      first_str.resize(first_s);
-      memcpy((unsigned char*)first_str.data(), first, first_s);
-      free(first);
       free(str);
     
       padding = mpz_sizeinbase(key.second, 2); // bits
@@ -126,13 +119,21 @@ namespace RSAES{
       mpz_export(str, nullptr, 1, 1, 1, 0, key.second);
       size_t sec_s;
       unsigned char *second = UTIL::base64_encode(str, padding, &sec_s);
-      std::string second_str;
-      second_str.resize(sec_s);
-      memcpy((unsigned char*)second_str.data(), second, sec_s);
-      free(second);
       free(str);
-    
-      return first_str+'_'+second_str;
+
+      unsigned char* ret = (unsigned char*)malloc(sizeof(unsigned char)*(first_s+1+sec_s)); // TODO: optimize out the memcpys
+      memcpy(ret, first, first_s);
+      *(ret+first_s)='_';
+      memcpy(ret+first_s+1, second, sec_s);
+      free(first);
+      free(second);
+
+      std::string ret_str;
+      ret_str.resize(first_s+1+sec_s);
+      memcpy((char*)ret_str.data(), ret, first_s+1+sec_s);
+      free(ret);
+      
+      return ret_str;
     };
 
     void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string const& key){
