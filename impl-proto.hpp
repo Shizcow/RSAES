@@ -31,9 +31,9 @@ namespace RSAES{
 			       :tofind+6);     // .-9
     }
 
-    std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len){ // Credit to René Nyffenegger, optimized myself
-      size_t flen = (in_len/3*4)+(in_len%3?(in_len%3+1):0);
-      unsigned char *ret = (unsigned char*)malloc(sizeof(unsigned char)*(flen+1));
+    unsigned char* base64_encode(unsigned char const* bytes_to_encode, size_t in_len, size_t* flen){ // Credit to René Nyffenegger, optimized myself
+      *flen = (in_len/3*4)+(in_len%3?(in_len%3+1):0);
+      unsigned char *ret = (unsigned char*)malloc(sizeof(unsigned char)*(*flen+1));
       size_t ret_idx = 0;
       unsigned char i=0, j=0;
       unsigned char char_array_3[7]; // Apparently this removes one syscall at the cost of using a little more ram
@@ -64,15 +64,8 @@ namespace RSAES{
 	for (j = 0; (j < i + 1); j++)
 	  ret[ret_idx++] = base64_chars[char_array_4[j]];
       }
-
-      std::string ret_str;
-      ret_str.resize(flen);
-      memcpy((unsigned char*)ret_str.data(), ret, flen);
-
-      free(ret);
-
       
-      return ret_str;
+      return ret;
     }
 
     unsigned char* base64_decode(unsigned char const* encoded_string, size_t in_len, size_t* flen) { // Credit to René Nyffenegger, optimized myself
@@ -119,17 +112,27 @@ namespace RSAES{
       padding = padding/8+(padding%8>0?1:0);
       unsigned char *str = (unsigned char*)malloc(padding);
       mpz_export(str, nullptr, 1, 1, 1, 0, key.first);
-      std::string first = UTIL::base64_encode(str, padding);
+      size_t first_s;
+      unsigned char *first = UTIL::base64_encode(str, padding, &first_s);
+      std::string first_str;
+      first_str.resize(first_s);
+      memcpy((unsigned char*)first_str.data(), first, first_s);
+      free(first);
       free(str);
     
       padding = mpz_sizeinbase(key.second, 2); // bits
       padding = padding/8+(padding%8>0?1:0);
       str = (unsigned char*)malloc(padding);
       mpz_export(str, nullptr, 1, 1, 1, 0, key.second);
-      std::string second = UTIL::base64_encode(str, padding);
+      size_t sec_s;
+      unsigned char *second = UTIL::base64_encode(str, padding, &sec_s);
+      std::string second_str;
+      second_str.resize(sec_s);
+      memcpy((unsigned char*)second_str.data(), second, sec_s);
+      free(second);
       free(str);
     
-      return first+'_'+second;
+      return first_str+'_'+second_str;
     };
 
     void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string const& key){
@@ -201,11 +204,17 @@ namespace RSAES{
       mpz_clear(m_c);
       for(i=k-size_C; i-->0;)
 	C[i]=0; // fix possible mpz_t missalignment
-	
-      std::string ret_str = UTIL::base64_encode(C, k);
+
+      size_t ret_s;
+      unsigned char *ret_str = UTIL::base64_encode(C, k, &ret_s);
       free(C);
 
-      return ret_str;
+      std::string ret;
+      ret.resize(ret_s);
+      memcpy((char*)ret.data(), ret_str, ret_s);
+      free(ret_str);
+
+      return ret;
 #undef hLen
     }
 
@@ -627,8 +636,8 @@ namespace RSAES{
 	idx=static_cast<unsigned int>(log2(base)*2)+2;
 	mode=false;
       }
-      inline std::string pack(){
-	return UTIL::base64_encode((unsigned char const*) expanded_key.data(), base);
+      inline unsigned char* pack(size_t* pack_s){
+	return UTIL::base64_encode((unsigned char const*) expanded_key.data(), base, pack_s);
       }
     };
 
@@ -681,8 +690,15 @@ namespace RSAES{
       
       for(size_t i=0; i<size_p/16; i++)
 	small_encrypt(c+i*16, expanded_key);
+
+      size_t ret_s;
+      unsigned char* ret = UTIL::base64_encode((const unsigned char*)input.c_str(), size_p, &ret_s);
+      std::string ret_str;
+      ret_str.resize(ret_s);
+      memcpy((char*)ret_str.data(), ret, ret_s);
+      free(ret);
       
-      return UTIL::base64_encode((const unsigned char*)input.c_str(), size_p);
+      return ret_str;
     }
 
     std::string big_decrypt(std::string _input, AESkey & expanded_key){ // returns as string

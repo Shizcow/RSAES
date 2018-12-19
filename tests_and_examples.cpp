@@ -167,7 +167,12 @@ std::string test_low_level_AES(){
       auto p = Bob.expanded_key.begin();
       std::vector<unsigned char> exp(p, p+Bob.base); // send the un-expanded key so that we need less data to send
       std::string AES_string(exp.begin(), exp.end());
-      std::cout << RSAES::UTIL::base64_encode((const unsigned char*)AES_string.c_str(), AES_string.size()) << std::endl << std::endl;
+      size_t key_s;
+      unsigned char* prt = RSAES::UTIL::base64_encode((const unsigned char*)AES_string.c_str(), AES_string.size(), &key_s);
+      for(size_t i=0; i<key_s; ++i)
+	std::cout << prt[i] << std::endl;
+      free(prt);
+      putchar('\n');
     }
     if(msg_s!=msg)
       throw std::runtime_error("Messages aren't same - small");

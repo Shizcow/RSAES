@@ -118,7 +118,13 @@ namespace RSAES{
   }
 
   inline std::string EncryptionManager::pack(){ // Packs up the entire class as a string to be saved on disk or something similar. Only for fully initilized classes
-    return AES_key->pack(); // we can squeeze in these optimizations here because we don't need to encrypt it with RSA
+    size_t pack_s;
+    unsigned char* ret = AES_key->pack(&pack_s);
+    std::string ret_str;
+    ret_str.resize(pack_s);
+    memcpy((char*)ret_str.data(), ret, pack_s);
+    free(ret);
+    return ret_str; // we can squeeze in these optimizations here because we don't need to encrypt it with RSA
   }
 
   void EncryptionManager::unpack(std::string KeyResponse){
