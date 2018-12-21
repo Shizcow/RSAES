@@ -24,7 +24,7 @@ namespace RSAES{
     if(RAND_bytes((unsigned char*)&seed, sizeof(unsigned long))!=1)
       throw std::runtime_error("Openssl rand error");
     gmp_randseed_ui(r, seed);
-    RSA::unpackKey(&unpacked_key, key);      
+    RSA::unpackKey(&unpacked_key, key.c_str());      
     size_t AESbits = static_cast<size_t>(pow(2, (size_t)log2(mpz_sizeinbase(unpacked_key->first, 2)-1) + 1)); // round up to next power of two, unless already a power of 2. This gives the largest key size that we can send over with a given RSA key.
     //generate random pass
     AES_key = new AES::AESkey(AESbits);
@@ -35,7 +35,7 @@ namespace RSAES{
     if(RAND_bytes((unsigned char*)&seed, sizeof(unsigned long))!=1)
       throw std::runtime_error("Openssl rand error");
     gmp_randseed_ui(r, seed);
-    RSA::unpackKey(&unpacked_key, key);
+    RSA::unpackKey(&unpacked_key, key.c_str());
     AES_key = new AES::AESkey(AESbits);
   }
 

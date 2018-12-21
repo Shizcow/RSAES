@@ -11,6 +11,10 @@
 #include <string.h>       // memcpy
 #include <math.h>         // pow, log2
 #include <openssl/rand.h> // source of random bytes
+#include <cassert>
+
+#include <stdio.h>
+#include <iostream>
 
 namespace RSAES{
 
@@ -135,21 +139,22 @@ namespace RSAES{
       
       return ret_str;
     };
-
-    void unpackKey(std::pair<mpz_t,mpz_t> **rop, std::string const& key){
-      std::string _first = key.substr(0, key.find('_'));
-      std::string _second = key.substr(_first.length()+1, key.length());
-      size_t first_s, second_s;
-      unsigned char *first = UTIL::base64_decode((const unsigned char*)_first.data(), _first.size(), &first_s);
-      unsigned char *second = UTIL::base64_decode((const unsigned char*)_second.data(), _second.size(), &second_s);
-
-      *rop = new std::pair<mpz_t,mpz_t>;
-      mpz_init((*rop)->first);
-      mpz_import((*rop)->first, first_s, 1, 1, 1, 0, first);
-      mpz_init((*rop)->second);
-      mpz_import((*rop)->second, second_s, 1, 1, 1, 0, second);
-      free(first);
-      free(second);
+    void unpackKey(std::pair<mpz_t,mpz_t> **rop, const char* key){
+#define _first key
+      //const char *_first = key; // key.substr(0, key.find('_'));
+	const char *_second = _first;    // key.substr(_first.length()+1, key.length());
+	while(*_second++!='_');
+	size_t first_s, second_s;
+	unsigned char *first = UTIL::base64_decode((const unsigned char*)_first, (size_t)((char*)_second-(char*)_first-1), &first_s);
+	unsigned char *second = UTIL::base64_decode((const unsigned char*)_second, strlen(_second), &second_s);
+	*rop = new std::pair<mpz_t,mpz_t>;
+	mpz_init((*rop)->first);
+	mpz_import((*rop)->first, first_s, 1, 1, 1, 0, first);
+	mpz_init((*rop)->second);
+	mpz_import((*rop)->second, second_s, 1, 1, 1, 0, second);
+	free(first);
+	free(second);
+#undef _first
     }
   
     std::string encrypt(std::string const& __input, std::pair<mpz_t,mpz_t> *key){ // TODO: add padding

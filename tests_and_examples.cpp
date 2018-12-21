@@ -91,13 +91,13 @@ std::string test_high_level(){
     std::string Allice_pack = Allice.pack();
     Bob.destroy();
     Allice.destroy();
-    std::cout << "For reference, here's the packed strings:" << std::endl << Bob_pack << std::endl << Allice_pack << std::endl << std::endl;
+    std::cout << "For reference, here's the packed strings:" << std::endl << Bob_pack << std::endl << std::endl;
 
     std::cout << "Unpack the managers for further use" << std::endl << std::endl;
     RSAES::EncryptionManager Bob2, Allice2;
     Bob2.unpack(Bob_pack);
     Allice2.unpack(Allice_pack);
-    
+    std::cout << "Re-packed string:" << std::endl << Bob2.pack() << std::endl;
     std::cout << "Now let's go the other way. Encrypt with manager 2:" << std::endl;
     msg_s = word_bank[dist_50(mt)];
     words = dist_50(mt);
@@ -130,7 +130,7 @@ std::string test_low_level_RSA(){
     for(int i=0; i<words; ++i)
       (msg_s+=' ')+=word_bank[dist_50(mt)];
     std::pair<mpz_t,mpz_t> *recvKey;
-    RSAES::RSA::unpackKey(&recvKey, keyStr);
+    RSAES::RSA::unpackKey(&recvKey, keyStr.c_str());
     std::string msg = RSAES::RSA::encrypt(msg_s, recvKey);
     mpz_clear(recvKey->first);
     mpz_clear(recvKey->second);
@@ -230,20 +230,21 @@ int main(){
   unsigned int s_aes=0, f_aes=0, f_high=0, s_high=0, f_rsa=0, s_rsa=0;
   bool
     test_high = true
-    ,test_rsa = true
-    ,test_aes = true
-    ,test_gig = true
+    ,test_rsa = false
+    ,test_aes = false
+    ,test_gig = false
     ;
 
   if(test_high){
     std::cout << "TESTING HIGH LEVEL INTERFACE" << std::endl;
-    for(unsigned int done=0; done<10; ++done){
+    for(unsigned int done=1; done; ++done){
       std::string result = test_high_level();
       if(result=="")
 	++s_high;
       else {
 	++f_high;
 	std::cout << "TEST FAILED WITH MESSAGE: " << std::endl << result << std::endl;
+	exit(0);
       }
       std::cout << "-----------------------" << std::endl;
       std::cout << "HIGH LEVEL INTERFACE" << std::endl;
