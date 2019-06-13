@@ -52,7 +52,7 @@ make init lib=yes
 
 make init lib=no
      Assumes GMP is not installed on the target system. Instead of
-     linking to libgmp, RSAES.gpp will include "mini-gmp/mini-gmp.c"
+     linking to libgmp, RSAES.hpp will include "mini-gmp/mini-gmp.c"
      and will include the functions and struct definitions needed for
      RSAES to work properly. The advantage here is more portability
      at the cost of performance, as mini-gmp uses a pure C
