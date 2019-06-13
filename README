@@ -72,7 +72,7 @@ make test
      an example:
      	make test CXX=clang++
      This would compile tests_and_examples.cpp with clang and run a.out.
-     Assitionally, CXXFLAGS is recognized and can be passed to the
+     Additionally, CXXFLAGS is recognized and can be passed to the
      makefile in order to specify optimizations or special circumstances.
      Example is as follows:
      	make test CXXFLAGS="-O2 -Wall -Werror"
